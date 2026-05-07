@@ -471,7 +471,7 @@ export default function ValeriaQuotation() {
 
     return (
       <StaffLayout breadcrumb="Cotización">
-        <div style={{ padding: '16px 28px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: '12px 28px', borderBottom: `1px solid ${C.border}`, background: C.white }}>
           <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
             {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
               <button key={key} onClick={() => { setView('list'); setTab(key); }}
@@ -582,7 +582,7 @@ export default function ValeriaQuotation() {
             {toast.msg}
           </div>
         )}
-        <div style={{ padding: '16px 28px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: '12px 28px', borderBottom: `1px solid ${C.border}`, background: C.white }}>
           <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
             {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
               <button key={key} onClick={() => { setView('list'); setTab(key); }}
@@ -686,7 +686,7 @@ export default function ValeriaQuotation() {
         </div>
       )}
 
-      <div style={{ padding: '16px 24px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 10, padding: '12px 24px', borderBottom: `1px solid ${C.border}`, background: C.white }}>
         <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
           {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
             <button key={key} onClick={() => { setView('list'); setTab(key); }}
