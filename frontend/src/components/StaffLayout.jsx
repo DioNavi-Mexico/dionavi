@@ -119,6 +119,25 @@ export default function StaffLayout({ children, breadcrumb }) {
 
         {/* Nav */}
         <nav style={{ padding: '14px 12px', flex: 1, overflowY: 'auto' }}>
+          {/* Back to main portal */}
+          <button
+            onClick={() => navigate('/staff/portal')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              width: '100%', padding: '7px 10px', marginBottom: 12,
+              background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 6, cursor: 'pointer', color: 'rgba(255,255,255,0.7)',
+              fontSize: 12.5, fontWeight: 500, fontFamily: 'inherit', textAlign: 'left',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.13)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Portal del Equipo
+          </button>
+
           {SECTIONS.map((section) => {
             const visibleItems = section.items.filter(item =>
               !item.roles || item.roles.includes(staffUser?.role)
