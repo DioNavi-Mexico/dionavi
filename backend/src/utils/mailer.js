@@ -108,4 +108,43 @@ async function sendQuotationEmail({ toEmail, doctorName, patientName, quotation,
   });
 }
 
-module.exports = { sendQuotationEmail };
+async function sendPlanningApprovalEmail({ toEmail, doctorName, patientName, caseId }) {
+  const appUrl = process.env.FRONTEND_URL || 'https://dionavi.vercel.app';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+    <div style="background:#1F3863;padding:20px 28px;">
+      <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.02em;">DIO</span><span style="color:#00B8EA;font-size:20px;font-weight:700;">NAVI</span>
+      <div style="color:rgba(255,255,255,0.45);font-size:10px;letter-spacing:0.12em;margin-top:3px;">PLATAFORMA LAB</div>
+    </div>
+    <div style="padding:28px;">
+      <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#1F3863;">Estimado Dr. ${doctorName},</p>
+      <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6;">
+        La planeación del caso para el paciente <strong style="color:#374151;">${patientName}</strong> está lista y requiere su revisión y aprobación.
+      </p>
+      <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+        <p style="margin:0;font-size:13px;color:#7c3aed;font-weight:600;">Acción requerida</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">Por favor ingrese a la plataforma para revisar las imágenes de planeación y aprobar o solicitar cambios.</p>
+      </div>
+      <a href="${appUrl}" style="display:inline-block;padding:11px 24px;background:#1F3863;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px;">Ver planeación →</a>
+    </div>
+    <div style="padding:16px 28px;border-top:1px solid #f3f4f6;">
+      <p style="margin:0;font-size:11px;color:#d1d5db;text-align:center;">DIONavi Lab Platform · Notificación automática</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  return resend.emails.send({
+    from:    FROM,
+    to:      [toEmail],
+    subject: `[DIONavi] Planeación lista para revisión — ${patientName}`,
+    html,
+  });
+}
+
+module.exports = { sendQuotationEmail, sendPlanningApprovalEmail };

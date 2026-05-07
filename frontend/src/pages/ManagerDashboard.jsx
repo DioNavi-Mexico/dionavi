@@ -114,6 +114,7 @@ export default function ManagerDashboard() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [sortBy, setSortBy] = useState('urgency');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [resendingId, setResendingId] = useState(null);
 
   // Staff management state
   const [staff, setStaff] = useState([]);
@@ -125,6 +126,18 @@ export default function ManagerDashboard() {
   const [createError, setCreateError] = useState('');
 
   const staffToken = () => localStorage.getItem('staff_token');
+
+  const resendNotification = async (caseId) => {
+    setResendingId(caseId);
+    try {
+      await fetch(`${API}/planning/${caseId}/resend-notification`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${staffToken()}` },
+      });
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const fetchStaff = useCallback(async () => {
     setStaffLoading(true);
@@ -546,15 +559,25 @@ export default function ManagerDashboard() {
 
                       {/* Action */}
                       <td style={{ padding: '12px 16px' }}>
-                        {cfg.action ? (
-                          <button
-                            onClick={() => navigate(cfg.action)}
-                            style={{ padding: '5px 12px', border: '1px solid #E7E6E6', borderRadius: 5, background: '#fff', fontSize: 12, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                            Abrir →
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: 12, color: '#9ca3af' }}>Entregado</span>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {cfg.action ? (
+                            <button
+                              onClick={() => navigate(cfg.action)}
+                              style={{ padding: '5px 12px', border: '1px solid #E7E6E6', borderRadius: 5, background: '#fff', fontSize: 12, color: '#374151', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                              Abrir →
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 12, color: '#9ca3af' }}>Entregado</span>
+                          )}
+                          {c.status === 'pending_doctor_approval' && (
+                            <button
+                              onClick={() => resendNotification(c.id)}
+                              disabled={resendingId === c.id}
+                              style={{ padding: '5px 12px', border: '1px solid #e9d5ff', borderRadius: 5, background: '#faf5ff', fontSize: 12, color: '#7c3aed', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: resendingId === c.id ? 0.6 : 1 }}>
+                              {resendingId === c.id ? 'Enviando…' : 'Reenviar notif.'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const supabase = require('../utils/supabase');
+const { sendPlanningApprovalEmail } = require('../utils/mailer');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -176,6 +177,22 @@ router.post('/:caseId/submit', upload.array('planning_files', 10), async (req, r
       new_value: { files_count: uploadedPaths.length, planner_notes }
     });
 
+    // Notify doctor
+    const { data: caseWithDoctor } = await supabase
+      .from('cases')
+      .select('patient_name, doctors(first_name, last_name, email)')
+      .eq('id', caseId)
+      .single();
+    if (caseWithDoctor?.doctors?.email) {
+      const doc = caseWithDoctor.doctors;
+      sendPlanningApprovalEmail({
+        toEmail:     doc.email,
+        doctorName:  `${doc.first_name} ${doc.last_name}`,
+        patientName: caseWithDoctor.patient_name,
+        caseId,
+      }).catch(console.error);
+    }
+
     res.json({ message: 'Planning submitted for doctor approval', case: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -256,6 +273,39 @@ router.post('/:caseId/revision', async (req, res) => {
     });
 
     res.json({ message: 'Revision requested', case: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/planning/:caseId/resend-notification — Admin resends planning approval email
+router.post('/:caseId/resend-notification', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+
+    const { data, error } = await supabase
+      .from('cases')
+      .select('patient_name, status, doctors(first_name, last_name, email)')
+      .eq('id', caseId)
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Case not found' });
+    if (data.status !== 'pending_doctor_approval') {
+      return res.status(400).json({ error: 'Case is not pending doctor approval' });
+    }
+    if (!data.doctors?.email) {
+      return res.status(400).json({ error: 'Doctor email not found' });
+    }
+
+    const doc = data.doctors;
+    await sendPlanningApprovalEmail({
+      toEmail:     doc.email,
+      doctorName:  `${doc.first_name} ${doc.last_name}`,
+      patientName: data.patient_name,
+      caseId,
+    });
+
+    res.json({ message: 'Notification resent' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
