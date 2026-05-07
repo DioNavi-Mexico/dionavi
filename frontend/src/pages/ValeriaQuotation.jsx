@@ -471,13 +471,17 @@ export default function ValeriaQuotation() {
 
     return (
       <StaffLayout breadcrumb="Cotización">
+        <div style={{ padding: '16px 28px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+          <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
+            {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
+              <button key={key} onClick={() => { setView('list'); setTab(key); }}
+                style={{ padding: '6px 16px', fontSize: 13, fontWeight: 500, borderRadius: 4, border: 'none', cursor: 'pointer', background: key === 'quoted' ? C.white : 'transparent', color: key === 'quoted' ? '#111827' : C.gray500, boxShadow: key === 'quoted' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: 28 }}>
-
-          {/* Back button */}
-          <button onClick={() => { setView('list'); setTab('quoted'); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: C.navy, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 20, padding: 0 }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-            Volver a cotizaciones
-          </button>
 
           {/* Case header */}
           <Card style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
@@ -578,12 +582,17 @@ export default function ValeriaQuotation() {
             {toast.msg}
           </div>
         )}
+        <div style={{ padding: '16px 28px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+          <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
+            {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
+              <button key={key} onClick={() => { setView('list'); setTab(key); }}
+                style={{ padding: '6px 16px', fontSize: 13, fontWeight: 500, borderRadius: 4, border: 'none', cursor: 'pointer', background: key === 'pending-payment' ? C.white : 'transparent', color: key === 'pending-payment' ? '#111827' : C.gray500, boxShadow: key === 'pending-payment' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: 28 }}>
-
-          <button onClick={() => { setView('list'); setTab('pending-payment'); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: C.navy, fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 20, padding: 0 }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-            Volver a confirmaciones pendientes
-          </button>
 
           {/* Case header */}
           <Card style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
@@ -676,6 +685,17 @@ export default function ValeriaQuotation() {
           {toast.msg}
         </div>
       )}
+
+      <div style={{ padding: '16px 24px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+        <div style={{ display: 'flex', gap: 4, background: C.gray200, padding: 4, borderRadius: 6, width: 'fit-content' }}>
+          {[['planned', 'Por cotizar'], ['quoted', 'Cotizados'], ['pending-payment', 'Confirmar Pago']].map(([key, lbl]) => (
+            <button key={key} onClick={() => { setView('list'); setTab(key); }}
+              style={{ padding: '6px 16px', fontSize: 13, fontWeight: 500, borderRadius: 4, border: 'none', cursor: 'pointer', background: key === 'planned' ? C.white : 'transparent', color: key === 'planned' ? '#111827' : C.gray500, boxShadow: key === 'planned' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 348px', gap: 20, padding: 24 }}>
 
