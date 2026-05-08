@@ -433,10 +433,10 @@ export default function CaseSubmission() {
                         ? <span className="text-xs text-green-600 font-medium text-center">{cbctFile.name}</span>
                         : <>
                             <span className="text-xs text-gray-500 text-center">Arrastra el archivo o haz clic</span>
-                            <span className="text-xs text-gray-400">.nii o .dcm — máx 1 GB</span>
+                            <span className="text-xs text-gray-400">.nii, .dcm o .zip — máx 1 GB</span>
                           </>
                       }
-                      <input type="file" className="hidden" accept=".nii,.dcm" onChange={e => setCbctFile(e.target.files[0])} />
+                      <input type="file" className="hidden" accept=".nii,.dcm,.zip" onChange={e => setCbctFile(e.target.files[0])} />
                     </label>
                   </div>
 
@@ -451,10 +451,10 @@ export default function CaseSubmission() {
                         ? <span className="text-xs text-green-600 font-medium text-center">{scanFile.name}</span>
                         : <>
                             <span className="text-xs text-gray-500 text-center">Arrastra el archivo o haz clic</span>
-                            <span className="text-xs text-gray-400">.stl o .ply — máx 1 GB</span>
+                            <span className="text-xs text-gray-400">.stl, .ply o .zip — máx 1 GB</span>
                           </>
                       }
-                      <input type="file" className="hidden" accept=".stl,.ply" onChange={e => setScanFile(e.target.files[0])} />
+                      <input type="file" className="hidden" accept=".stl,.ply,.zip" onChange={e => setScanFile(e.target.files[0])} />
                     </label>
                   </div>
 

@@ -9,7 +9,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 1000000000 }, // 1GB
   fileFilter: (req, file, cb) => {
-    const allowed = ['.nii', '.dcm', '.stl', '.ply', '.jpg', '.png', '.jpeg'];
+    const allowed = ['.nii', '.dcm', '.stl', '.ply', '.jpg', '.png', '.jpeg', '.zip'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.includes(ext)) {
       cb(null, true);
