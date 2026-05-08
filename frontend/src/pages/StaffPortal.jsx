@@ -136,13 +136,58 @@ const PAGE_SIZE = 20;
 const fmt     = (iso) => iso ? new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const caseTag = (c)   => `DN-${c.id.slice(-6).toUpperCase()}`;
 
+const STAGE_ORDER = ['submitted','resubmission_requested','files_validated','in_planning','pending_doctor_approval','planned','quoted','approved','in_production','delivered'];
+
+const ADMIN_STATUS_CONFIG = {
+  submitted:               { label: 'Enviado',             color: '#3b82f6', bg: '#eff6ff', slaHours: 2,   action: '/rebe/validation'   },
+  files_validated:         { label: 'Archivos validados',  color: '#16a34a', bg: '#f0fdf4', slaHours: 4,   action: '/planner/interface' },
+  resubmission_requested:  { label: 'Reenvío solicitado',  color: '#dc2626', bg: '#fef2f2', slaHours: 2,   action: '/rebe/validation'   },
+  in_planning:             { label: 'En planeación',       color: '#d97706', bg: '#fffbeb', slaHours: 48,  action: '/planner/interface' },
+  pending_doctor_approval: { label: 'Rev. planeación',     color: '#7c3aed', bg: '#faf5ff', slaHours: 24,  action: '/planner/interface' },
+  planned:                 { label: 'Planeado',            color: '#0891b2', bg: '#ecfeff', slaHours: 8,   action: '/valeria/quotation' },
+  quoted:                  { label: 'Cotizado',            color: '#ea580c', bg: '#fff7ed', slaHours: 48,  action: '/valeria/quotation' },
+  approved:                { label: 'Aprobado / Pagado',   color: '#16a34a', bg: '#f0fdf4', slaHours: null,action: '/lab/production'    },
+  in_production:           { label: 'En producción',       color: '#0f766e', bg: '#f0fdfa', slaHours: null,action: '/lab/production'    },
+  delivered:               { label: 'Entregado a almacén', color: '#6b7280', bg: '#f9fafb', slaHours: null,action: null                 },
+};
+
+const ROLE_LABELS_STAFF = {
+  validation: 'Validación (Rebe)',
+  planner:    'Planeación',
+  quotation:  'Cotizaciones (Valeria)',
+  lab:        'Laboratorio (Kumin/Sheyla)',
+  admin:      'Administración',
+};
+
+function getSLAAdmin(updatedAt, slaHours) {
+  if (!slaHours || !updatedAt) return null;
+  const elapsedH = (Date.now() - new Date(updatedAt).getTime()) / 3600000;
+  const pct = elapsedH / slaHours;
+  if (pct >= 1)   return { level: 'red',    pct, label: 'SLA vencido',  color: '#dc2626' };
+  if (pct >= 0.8) return { level: 'orange', pct, label: 'Urgente',      color: '#ea580c' };
+  if (pct >= 0.5) return { level: 'amber',  pct, label: 'En riesgo',    color: '#d97706' };
+  return               { level: 'green',  pct, label: 'OK',           color: '#16a34a' };
+}
+
+function urgencyRank(sla) {
+  if (!sla) return 4;
+  return { red: 0, orange: 1, amber: 2, green: 3 }[sla.level] ?? 4;
+}
+
+function isThisWeek(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const diff = (d - new Date()) / 86400000;
+  return diff >= -1 && diff <= 7;
+}
+
 // ─────────────────────────────────────────────
 export default function StaffPortal() {
   const navigate  = useNavigate();
   const staffUser = JSON.parse(localStorage.getItem('staff_user') || 'null');
   const role      = staffUser?.role || 'admin';
 
-  const [section, setSection]       = useState('pending');
+  const [section, setSection]       = useState(role === 'admin' ? 'tower' : 'pending');
   const [cases, setCases]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [toast, setToast]           = useState('');
@@ -155,6 +200,19 @@ export default function StaffPortal() {
   const [clientSearch, setClientSearch]   = useState('');
   const [clientZone, setClientZone]       = useState('all');
 
+  const [sortBy, setSortBy]               = useState('urgency');
+  const [filterStatus, setFilterStatus]   = useState('all');
+  const [towerTab, setTowerTab]           = useState('cases');
+  const [staff, setStaff]                 = useState([]);
+  const [staffLoading, setStaffLoading]   = useState(false);
+  const [staffError, setStaffError]       = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm]       = useState({ email: '', password: '', first_name: '', last_name: '', role: 'validation' });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError]     = useState('');
+  const [resendingId, setResendingId]     = useState(null);
+  const [staffLoaded, setStaffLoaded]     = useState(false);
+
   const changeSection = (key) => { setSection(key); setAllPage(1); setAllSearch(''); };
 
   useEffect(() => {
@@ -165,6 +223,10 @@ export default function StaffPortal() {
   useEffect(() => {
     if (section === 'clients') fetchDoctors();
   }, [section]);
+
+  useEffect(() => {
+    if (section === 'tower' && towerTab === 'staff') fetchStaff();
+  }, [section, towerTab]);
 
   const fetchAll = async () => {
     try {
@@ -189,6 +251,56 @@ export default function StaffPortal() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
+  const fetchStaff = async () => {
+    if (staffLoaded) return;
+    setStaffLoading(true);
+    try {
+      const res = await fetch(`${API}/staff/accounts`, { headers: { Authorization: `Bearer ${localStorage.getItem('staff_token')}` } });
+      const data = await res.json();
+      if (res.ok) { setStaff(data.staff || []); setStaffLoaded(true); }
+      else setStaffError(data.error || 'Error al cargar equipo');
+    } catch { setStaffError('Sin conexión al servidor'); }
+    finally { setStaffLoading(false); }
+  };
+
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setCreateError('');
+    setCreateLoading(true);
+    try {
+      const res = await fetch(`${API}/staff/accounts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('staff_token')}` },
+        body: JSON.stringify(createForm),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCreateError(data.error || 'Error al crear cuenta'); return; }
+      setShowCreateModal(false);
+      setCreateForm({ email: '', password: '', first_name: '', last_name: '', role: 'validation' });
+      setStaffLoaded(false);
+      fetchStaff();
+    } catch { setCreateError('Sin conexión al servidor'); }
+    finally { setCreateLoading(false); }
+  };
+
+  const toggleStaff = async (id) => {
+    try {
+      await fetch(`${API}/staff/accounts/${id}/toggle`, { method: 'PATCH', headers: { Authorization: `Bearer ${localStorage.getItem('staff_token')}` } });
+      setStaffLoaded(false);
+      fetchStaff();
+    } catch {}
+  };
+
+  const resendNotification = async (caseId) => {
+    setResendingId(caseId);
+    try {
+      await fetch(`${API}/planning/${caseId}/resend-notification`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('staff_token')}` },
+      });
+    } finally { setResendingId(null); }
+  };
+
   const canAct = (requiredRole) => role === 'admin' || role === requiredRole;
 
   // ── Derived data ──
@@ -204,6 +316,26 @@ export default function StaffPortal() {
   const allOnTrack   = cases.filter(c => { const s = getSLA(c); return s && s.color === 'green'; });
 
   const userInitials = `${staffUser?.first_name?.[0] || ''}${staffUser?.last_name?.[0] || ''}`;
+
+  // Admin tower derived values
+  const towerActive    = cases.filter(c => c.status !== 'delivered');
+  const towerBreached  = towerActive.filter(c => getSLAAdmin(c.updated_at, ADMIN_STATUS_CONFIG[c.status]?.slaHours)?.level === 'red');
+  const towerStalled24 = towerActive.filter(c => c.updated_at && (Date.now() - new Date(c.updated_at).getTime()) > 86400000);
+  const towerSurgeries = cases.filter(c => isThisWeek(c.tentative_surgery_date));
+  const pipelineCounts = STAGE_ORDER.reduce((acc, s) => { acc[s] = cases.filter(c => c.status === s).length; return acc; }, {});
+  const towerEnriched  = cases
+    .filter(c => filterStatus === 'all' ? c.status !== 'delivered' : c.status === filterStatus)
+    .map(c => { const cfg = ADMIN_STATUS_CONFIG[c.status]; const sla = getSLAAdmin(c.updated_at, cfg?.slaHours); return { ...c, sla, cfg }; });
+  const towerSorted    = [...towerEnriched].sort((a, b) => {
+    if (sortBy === 'urgency') return urgencyRank(a.sla) - urgencyRank(b.sla);
+    if (sortBy === 'newest')  return new Date(b.created_at) - new Date(a.created_at);
+    if (sortBy === 'surgery') {
+      if (!a.tentative_surgery_date) return 1;
+      if (!b.tentative_surgery_date) return -1;
+      return new Date(a.tentative_surgery_date) - new Date(b.tentative_surgery_date);
+    }
+    return 0;
+  });
 
   // ── Nav ──
   const navSections = [
@@ -818,137 +950,358 @@ export default function StaffPortal() {
             );
           })()}
 
-          {/* ══ TORRE DE CONTROL (admin only) ══ */}
+          {/* ══ TORRE DE CONTROL / ADMIN DASHBOARD ══ */}
           {!loading && section === 'tower' && role === 'admin' && (
             <>
-              <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
-                  <h1 style={{ fontSize: 20, fontWeight: 700, color: C.navy, margin: 0 }}>Torre de Control</h1>
-                  <p style={{ fontSize: 13, color: C.gray500, marginTop: 3 }}>Resumen completo del pipeline · {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <h1 style={{ fontSize: 20, fontWeight: 700, color: C.navy, margin: 0 }}>Control Tower</h1>
+                  <div style={{ fontSize: 12, color: C.gray500, marginTop: 2 }}>
+                    Actualizado a las {new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-                {allBreaching.length > 0 && (
-                  <span style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 4, background: C.dangerBg, color: C.danger }}>
-                    {allBreaching.length} Incumplimiento{allBreaching.length > 1 ? 's' : ''} Activo{allBreaching.length > 1 ? 's' : ''}
-                  </span>
-                )}
+                <button onClick={fetchAll}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: `1px solid ${C.border}`, borderRadius: 6, background: C.white, fontSize: 13, color: C.gray700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  Actualizar
+                </button>
               </div>
 
-              {/* Alerts */}
-              {allBreaching.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  {allBreaching.map(c => {
-                    const sla = getSLA(c);
-                    const doctor = c.doctors ? `${c.doctors.first_name} ${c.doctors.last_name}` : '—';
-                    return (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 6, marginBottom: 8, background: C.dangerBg }}>
-                        <div style={{ color: C.danger, flexShrink: 0 }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#991b1b' }}>
-                            {c.patient_name} — {STATUS_CONFIG[c.status]?.label} sin avance · {sla ? fmtSLA(sla.remaining) : ''}
+              {/* Tabs */}
+              <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
+                {[{ key: 'cases', label: 'Casos' }, { key: 'staff', label: 'Equipo' }].map(t => (
+                  <button key={t.key} onClick={() => setTowerTab(t.key)} style={{
+                    padding: '8px 18px', fontSize: 13, fontWeight: 500, border: 'none', background: 'transparent',
+                    color: towerTab === t.key ? C.navy : C.gray500, cursor: 'pointer', fontFamily: 'inherit',
+                    borderBottom: towerTab === t.key ? `2px solid ${C.navy}` : '2px solid transparent',
+                    marginBottom: -1,
+                  }}>{t.label}</button>
+                ))}
+              </div>
+
+              {/* ── EQUIPO ── */}
+              {towerTab === 'staff' && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: C.navy }}>Miembros del equipo</div>
+                    <button onClick={() => { setCreateError(''); setShowCreateModal(true); }}
+                      style={{ padding: '7px 14px', borderRadius: 6, border: 'none', background: C.navy, color: C.white, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      + Agregar miembro
+                    </button>
+                  </div>
+
+                  {staffError && <div style={{ marginBottom: 12, padding: '10px 14px', background: C.dangerBg, border: '1px solid #fecaca', borderRadius: 6, fontSize: 13, color: C.danger }}>{staffError}</div>}
+
+                  {staffLoading ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: C.gray400, fontSize: 13 }}>Cargando equipo...</div>
+                  ) : (
+                    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#f9fafb', borderBottom: `1px solid ${C.border}` }}>
+                            {['Nombre', 'Correo', 'Rol', 'Estado', ''].map(h => (
+                              <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {staff.map(s => (
+                            <tr key={s.id} style={{ borderBottom: `1px solid ${C.gray200}` }}>
+                              <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 500, color: C.navy }}>{s.first_name} {s.last_name}</td>
+                              <td style={{ padding: '12px 16px', fontSize: 13, color: C.gray500 }}>{s.email}</td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: C.blueLight, color: C.navy }}>
+                                  {ROLE_LABELS_STAFF[s.role] || s.role}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{ fontSize: 12, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: s.is_active ? C.successBg : C.gray100, color: s.is_active ? C.success : C.gray500 }}>
+                                  {s.is_active ? 'Activo' : 'Inactivo'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                <button onClick={() => toggleStaff(s.id)}
+                                  style={{ fontSize: 12, padding: '4px 10px', border: `1px solid ${C.border}`, borderRadius: 5, background: C.white, color: C.gray500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                  {s.is_active ? 'Desactivar' : 'Activar'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {staff.length === 0 && (
+                            <tr><td colSpan={5} style={{ padding: '32px 16px', textAlign: 'center', fontSize: 13, color: C.gray400 }}>No hay miembros registrados</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {showCreateModal && (
+                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ background: C.white, borderRadius: 10, padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+                        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: C.navy }}>Agregar miembro del equipo</h3>
+                        {createError && <div style={{ marginBottom: 12, padding: '8px 12px', background: C.dangerBg, border: '1px solid #fecaca', borderRadius: 6, fontSize: 13, color: C.danger }}>{createError}</div>}
+                        <form onSubmit={handleCreateStaff}>
+                          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.gray700, marginBottom: 4 }}>Nombre</label>
+                              <input required value={createForm.first_name} onChange={e => setCreateForm(p => ({ ...p, first_name: e.target.value }))}
+                                style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.gray700, marginBottom: 4 }}>Apellido</label>
+                              <input required value={createForm.last_name} onChange={e => setCreateForm(p => ({ ...p, last_name: e.target.value }))}
+                                style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                            </div>
                           </div>
-                          <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 1 }}>{doctor} · <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{caseTag(c)}</span></div>
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 4, background: C.dangerBg, border: `1px solid ${C.danger}`, color: C.danger, whiteSpace: 'nowrap' }}>Escalar</span>
-                      </div>
-                    );
-                  })}
-                  {allWarning.map(c => {
-                    const sla = getSLA(c);
-                    const doctor = c.doctors ? `${c.doctors.first_name} ${c.doctors.last_name}` : '—';
-                    return (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 6, marginBottom: 8, background: C.warningBg }}>
-                        <div style={{ color: C.warning, flexShrink: 0 }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>
-                            {c.patient_name} — {sla ? fmtSLA(sla.remaining) : ''}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.gray700, marginBottom: 4 }}>Correo electrónico</label>
+                            <input required type="email" value={createForm.email} onChange={e => setCreateForm(p => ({ ...p, email: e.target.value }))}
+                              placeholder="nombre@dionavi.com"
+                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
                           </div>
-                          <div style={{ fontSize: 12, color: '#b45309', marginTop: 1 }}>{doctor} · <span style={{ fontFamily: 'monospace', fontSize: 10 }}>{caseTag(c)}</span></div>
-                        </div>
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.gray700, marginBottom: 4 }}>Contraseña temporal</label>
+                            <input required type="password" value={createForm.password} onChange={e => setCreateForm(p => ({ ...p, password: e.target.value }))}
+                              placeholder="Mínimo 8 caracteres"
+                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                          </div>
+                          <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.gray700, marginBottom: 4 }}>Área</label>
+                            <select value={createForm.role} onChange={e => setCreateForm(p => ({ ...p, role: e.target.value }))}
+                              style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: C.white }}>
+                              {Object.entries(ROLE_LABELS_STAFF).map(([k, v]) => (
+                                <option key={k} value={k}>{v}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button type="button" onClick={() => setShowCreateModal(false)}
+                              style={{ padding: '8px 16px', border: `1px solid ${C.border}`, borderRadius: 6, background: C.white, fontSize: 13, color: C.gray500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Cancelar
+                            </button>
+                            <button type="submit" disabled={createLoading}
+                              style={{ padding: '8px 16px', borderRadius: 6, border: 'none', background: C.navy, color: C.white, fontSize: 13, fontWeight: 500, cursor: createLoading ? 'not-allowed' : 'pointer', opacity: createLoading ? 0.7 : 1, fontFamily: 'inherit' }}>
+                              {createLoading ? 'Creando...' : 'Crear cuenta'}
+                            </button>
+                          </div>
+                        </form>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* SLA Health + Pipeline */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                {/* SLA Health */}
-                <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6 }}>
-                  <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Salud del Pipeline SLA</div>
-                    <div style={{ fontSize: 12, color: C.gray500, marginTop: 1 }}>Todos los casos activos</div>
-                  </div>
-                  <div style={{ padding: '18px' }}>
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                      {[
-                        { n: allOnTrack.length,    label: 'En Tiempo',     color: 'green' },
-                        { n: allWarning.length,    label: 'Advertencia',   color: 'amber' },
-                        { n: allBreaching.length,  label: 'Incumplimiento',color: 'red'   },
-                      ].map(({ n, label, color }) => {
-                        const col = SLA_COLORS[color];
-                        return (
-                          <div key={label} style={{ flex: 1, padding: 14, borderRadius: 6, textAlign: 'center', background: col.bg }}>
-                            <div style={{ fontSize: 24, fontWeight: 700, color: col.text }}>{n}</div>
-                            <div style={{ fontSize: 11, fontWeight: 600, marginTop: 2, color: col.text }}>{label}</div>
-                          </div>
-                        );
-                      })}
+              {/* ── CASOS ── */}
+              {towerTab === 'cases' && (<>
+
+                {/* KPI Cards */}
+                <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+                  {[
+                    { label: 'Casos activos',        value: towerActive.length,    sub: `${cases.length} total incluyendo entregados`,  accent: undefined },
+                    { label: 'SLA vencidos',          value: towerBreached.length,  sub: 'Requieren atención inmediata',                  accent: towerBreached.length > 0 ? C.danger  : undefined },
+                    { label: 'Sin actividad +24h',    value: towerStalled24.length, sub: 'En el mismo estado desde ayer',                 accent: towerStalled24.length > 0 ? C.warning : undefined },
+                    { label: 'Cirugías esta semana',  value: towerSurgeries.length, sub: 'Próximos 7 días',                               accent: towerSurgeries.length > 0 ? C.purple  : undefined },
+                  ].map(({ label, value, sub, accent }) => (
+                    <div key={label} style={{ flex: 1, background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px 20px', minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: accent || C.navy, lineHeight: 1 }}>{value}</div>
+                      {sub && <div style={{ fontSize: 12, color: C.gray400, marginTop: 6 }}>{sub}</div>}
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Por Etapa</div>
-                    {KANBAN_COLS.map(col => {
-                      const colCases = cases.filter(c => col.statuses.includes(c.status));
-                      const bCases   = colCases.filter(c => { const s = getSLA(c); return s && s.color === 'red'; });
-                      const wCases   = colCases.filter(c => { const s = getSLA(c); return s && s.color === 'amber'; });
-                      return (
-                        <div key={col.key} style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: `1px solid ${C.gray200}`, fontSize: 12.5 }}>
-                          <span style={{ flex: 1, color: C.gray700 }}>{col.label}</span>
-                          <span style={{ display: 'flex', gap: 3, marginRight: 8 }}>
-                            {bCases.map(c => <SlaDot key={c.id} color="red" />)}
-                            {wCases.map(c => <SlaDot key={c.id} color="amber" />)}
-                          </span>
-                          <span style={{ color: C.gray500, minWidth: 54, textAlign: 'right' }}>{colCases.length} caso{colCases.length !== 1 ? 's' : ''}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  ))}
                 </div>
 
-                {/* Critical today */}
-                <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6 }}>
-                  <div style={{ padding: '14px 18px', borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Elementos Críticos del Día</div>
-                  </div>
-                  <div>
-                    {[...allBreaching, ...allWarning].slice(0, 6).map(c => {
-                      const sla = getSLA(c);
-                      const isBreached = sla && sla.color === 'red';
-                      const doctor = c.doctors ? `${c.doctors.first_name[0]}. ${c.doctors.last_name}` : '—';
+                {/* Pipeline Strip */}
+                <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px 20px', marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>Pipeline de casos</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {STAGE_ORDER.map(s => {
+                      const cfg = ADMIN_STATUS_CONFIG[s];
+                      const count = pipelineCounts[s];
                       return (
-                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderBottom: `1px solid ${C.gray200}` }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.patient_name}</div>
-                            <div style={{ fontSize: 11, color: C.gray500, marginTop: 1 }}>
-                              {doctor} · <StatusBadge status={c.status} />
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: isBreached ? C.danger : C.warning }}>
-                              {sla ? fmtSLA(sla.remaining) : '—'}
-                            </div>
-                          </div>
-                        </div>
+                        <button key={s}
+                          onClick={() => setFilterStatus(filterStatus === s ? 'all' : s)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+                            border: `1px solid ${filterStatus === s ? cfg.color : C.border}`,
+                            borderRadius: 6, background: filterStatus === s ? cfg.bg : '#fafafa',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'border-color 0.15s, background 0.15s',
+                          }}>
+                          <span style={{ fontSize: 18, fontWeight: 700, color: cfg.color, lineHeight: 1 }}>{count}</span>
+                          <span style={{ fontSize: 12, color: C.gray700 }}>{cfg.label}</span>
+                        </button>
                       );
                     })}
-                    {allBreaching.length === 0 && allWarning.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: '40px 0', color: C.gray400, fontSize: 13 }}>Sin elementos críticos</div>
+                    {filterStatus !== 'all' && (
+                      <button onClick={() => setFilterStatus('all')}
+                        style={{ padding: '8px 14px', border: `1px solid ${C.border}`, borderRadius: 6, background: C.white, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, color: C.gray500 }}>
+                        Mostrar todos
+                      </button>
                     )}
                   </div>
                 </div>
-              </div>
+
+                {/* Cases Table */}
+                <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.gray200}` }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.gray700 }}>
+                      {towerSorted.length} caso{towerSorted.length !== 1 ? 's' : ''}
+                      {filterStatus !== 'all' && ` · ${ADMIN_STATUS_CONFIG[filterStatus]?.label}`}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: C.gray400 }}>Ordenar:</span>
+                      {[
+                        { key: 'urgency', label: 'Urgencia' },
+                        { key: 'newest',  label: 'Más reciente' },
+                        { key: 'surgery', label: 'Cirugía' },
+                      ].map(opt => (
+                        <button key={opt.key} onClick={() => setSortBy(opt.key)}
+                          style={{
+                            padding: '4px 10px', borderRadius: 5, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                            border: `1px solid ${sortBy === opt.key ? C.navy : C.border}`,
+                            background: sortBy === opt.key ? C.navy : C.white,
+                            color: sortBy === opt.key ? C.white : C.gray700,
+                          }}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {towerSorted.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: C.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke={C.success} strokeWidth="2" style={{ width: 20, height: 20 }}>
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: C.gray700 }}>Sin casos activos</div>
+                      <div style={{ fontSize: 12, color: C.gray400, marginTop: 4 }}>Todo está bajo control.</div>
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${C.gray200}`, background: '#fafafa' }}>
+                          {['', 'Paciente', 'Doctor / Clínica', 'Estado', 'En este estado', 'SLA', 'Cirugía', 'Acción'].map((h, i) => (
+                            <th key={i} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {towerSorted.map((c, idx) => {
+                          const sla     = c.sla;
+                          const cfg     = c.cfg || ADMIN_STATUS_CONFIG[c.status] || {};
+                          const doctor  = c.doctors;
+                          const isSurgClose = isThisWeek(c.tentative_surgery_date);
+                          const elapsed = (() => {
+                            if (!c.updated_at) return '—';
+                            const ms = Date.now() - new Date(c.updated_at).getTime();
+                            const h = Math.floor(ms / 3600000);
+                            const m = Math.floor((ms % 3600000) / 60000);
+                            if (h >= 48) return `${Math.floor(h / 24)}d`;
+                            if (h >= 1)  return `${h}h ${m}m`;
+                            return `${m}m`;
+                          })();
+                          return (
+                            <tr key={c.id}
+                              style={{
+                                borderBottom: idx < towerSorted.length - 1 ? `1px solid ${C.gray200}` : 'none',
+                                background: sla?.level === 'red' ? '#fff5f5' : sla?.level === 'orange' ? '#fffaf5' : C.white,
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = C.gray100; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = sla?.level === 'red' ? '#fff5f5' : sla?.level === 'orange' ? '#fffaf5' : C.white; }}>
+
+                              <td style={{ padding: '12px 16px', width: 24 }}>
+                                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: sla ? sla.color : '#d1d5db' }} />
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{c.patient_name}</div>
+                                <div style={{ fontSize: 11, color: C.gray400, marginTop: 1 }}>#{c.id?.slice(0, 8)}</div>
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                {doctor ? (
+                                  <>
+                                    <div style={{ fontSize: 13, color: C.gray700 }}>Dr. {doctor.first_name} {doctor.last_name}</div>
+                                    {doctor.clinic_name && <div style={{ fontSize: 11, color: C.gray400, marginTop: 1 }}>{doctor.clinic_name}</div>}
+                                  </>
+                                ) : <span style={{ fontSize: 13, color: C.gray400 }}>—</span>}
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 500, color: cfg.color || C.gray500, background: cfg.bg || C.gray100, whiteSpace: 'nowrap' }}>
+                                  {cfg.label || c.status}
+                                </span>
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{ fontSize: 13, color: sla?.level === 'red' ? C.danger : sla?.level === 'orange' ? '#ea580c' : C.gray700, fontWeight: (sla?.level === 'red' || sla?.level === 'orange') ? 600 : 400 }}>
+                                  {elapsed}
+                                </span>
+                                {sla && <div style={{ fontSize: 11, color: sla.color, marginTop: 1 }}>{sla.label}</div>}
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                {sla ? (
+                                  <div style={{ width: 120 }}>
+                                    <div style={{ height: 5, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', width: `${Math.min(sla.pct * 100, 100)}%`, background: sla.color, borderRadius: 3 }} />
+                                    </div>
+                                  </div>
+                                ) : <span style={{ fontSize: 12, color: C.gray400 }}>—</span>}
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                <span style={{ fontSize: 13, color: isSurgClose ? C.purple : C.gray700, fontWeight: isSurgClose ? 600 : 400 }}>
+                                  {c.tentative_surgery_date ? new Date(c.tentative_surgery_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                </span>
+                                {isSurgClose && <div style={{ fontSize: 11, color: C.purple, marginTop: 1 }}>Esta semana</div>}
+                              </td>
+
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  {cfg.action ? (
+                                    <button onClick={() => navigate(cfg.action)}
+                                      style={{ padding: '5px 12px', border: `1px solid ${C.border}`, borderRadius: 5, background: C.white, fontSize: 12, color: C.gray700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                                      Abrir →
+                                    </button>
+                                  ) : <span style={{ fontSize: 12, color: C.gray400 }}>Entregado</span>}
+                                  {c.status === 'pending_doctor_approval' && (
+                                    <button onClick={() => resendNotification(c.id)} disabled={resendingId === c.id}
+                                      style={{ padding: '5px 12px', border: '1px solid #e9d5ff', borderRadius: 5, background: '#faf5ff', fontSize: 12, color: C.purple, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: resendingId === c.id ? 0.6 : 1 }}>
+                                      {resendingId === c.id ? 'Enviando…' : 'Reenviar notif.'}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Legend */}
+                <div style={{ display: 'flex', gap: 16, marginTop: 14, padding: '10px 0' }}>
+                  {[
+                    { color: '#dc2626', label: 'SLA vencido' },
+                    { color: '#ea580c', label: 'Urgente (>80% SLA)' },
+                    { color: '#d97706', label: 'En riesgo (>50% SLA)' },
+                    { color: '#16a34a', label: 'OK' },
+                    { color: '#d1d5db', label: 'Sin SLA (aprobado)' },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: C.gray500 }}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>)}
             </>
           )}
 
