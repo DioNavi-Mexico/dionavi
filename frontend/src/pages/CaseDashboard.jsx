@@ -178,6 +178,37 @@ export default function CaseDashboard() {
     } finally { setPaymentLoading(false); }
   };
 
+  const downloadCarta = (c) => {
+    const carta = c.case_details?.carta_responsiva;
+    if (!carta) return;
+    const signedDate = new Date(carta.signed_at);
+    const dateStr = signedDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = signedDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    const tag = `DN-${c.id.slice(-6).toUpperCase()}`;
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Carta Responsiva — ${c.patient_name}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Georgia',serif;max-width:700px;margin:40px auto;padding:0 40px;color:#1a1f2e;font-size:13px;line-height:1.8}.hdr{text-align:center;border-bottom:2px solid #1F3863;padding-bottom:16px;margin-bottom:20px}.hdr h1{font-size:16px;font-weight:bold;letter-spacing:2px;margin-bottom:4px}.hdr .sub{font-size:11px;color:#555}.meta{background:#f5f8fc;border:1px solid #d0dce8;padding:12px 16px;border-radius:4px;font-size:12px;margin-bottom:22px;display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.meta b{color:#1F3863}p{margin-bottom:12px;text-align:justify}ul{margin-bottom:14px;padding-left:20px}li{margin-bottom:8px;text-align:justify}.sig{margin-top:48px;border-top:1px solid #ccc;padding-top:24px}.sig-name{font-style:italic;font-size:18px;color:#1F3863;margin-bottom:8px}.sig-line{width:300px;border-bottom:1px solid #333;padding-top:24px;margin-bottom:6px}.sig-lbl{font-size:11px;color:#666}.sig-ts{font-size:11px;color:#555;margin-top:10px}.footer{margin-top:36px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}@media print{body{margin:20px}}</style></head><body>
+<div class="hdr"><h1>CARTA RESPONSIVA</h1><div class="sub">DIO CORPORATION MÉXICO, S.A. DE C.V. — DIOnavi Lab</div></div>
+<div class="meta"><div><b>Paciente:</b> ${c.patient_name}</div><div><b>Caso #:</b> ${tag}</div><div><b>Médico Operador:</b> ${carta.signed_by}</div><div><b>Fecha de firma:</b> ${dateStr}</div></div>
+<p>En base a los estudios médicos profesionales y la experiencia profesional, se ofrece el trabajo de elaboración de guías quirúrgicas para el tratamiento de implantes dentales. Con base al servicio de planeación del tratamiento de implante dental, el Centro Digital DIOnavi se dedica a elaborar guías quirúrgicas como auxiliar en la colocación de implantes dentales de la marca DIO®.</p>
+<p>Para ello se establecen los términos generales de aprobación:</p>
+<ul><li>El cliente dará su consentimiento y aprobación a través de la presente carta responsiva de que 3shape, el software de 3shape Implant Studio, en base a la confirmación del fresado de la cirugía y verificación de la información proporcionada con relación a la cirugía requerida.</li><li>El cliente dará su consentimiento y aprobación a través de la presente carta responsiva de que 3shape y su distribuidor (DIOnavi) a través de DIO Corporation México, S.A. de C.V., no tendrán responsabilidad alguna por daños y/o lesiones resultantes de su propia planeación y tratamiento.</li></ul>
+<p>De igual manera, se aprueba la planificación de la siguiente manera:</p>
+<ul><li>Estoy satisfecho(a) y apruebo los aspectos médicos y clínicos de mi planificación.</li><li>Estoy de acuerdo con la planificación a la solución de pines de anclaje.</li><li>Estoy de acuerdo con que he llevado a cabo la planificación cuidadosamente, elegí el implante más adecuado, la zona de seguridad apropiada en relación con los dientes adyacentes, restauraciones dentales principales, estructuras anatómicas e implantes ya colocados o por colocar.</li><li>Estoy de acuerdo con la aplicación del marcado del nervio mandibular, ya que fue realizado correctamente.</li><li>Estoy de acuerdo en que ni 3shape ni sus distribuidores realizarán exámenes clínicos.</li></ul>
+<p>El Médico Operador es representante de medicina dental y manifiesta que es su interés adquirir la guía DIOnavi en los términos y bajo las condiciones que el Doctor lo requirió en la etapa de planeación, así como las diferentes modificaciones que se realizaron para lograr su autorización y proceder a la elaboración de la guía de acuerdo con las características requeridas para la cirugía de tratamiento de implantes dentales.</p>
+<p>Ambas partes acuerdan y reconocen que el Médico Operador es responsable de los resultados de la cirugía realizada aún y con la utilización de la guía DIOnavi, y que el Centro Digital DIOnavi se dedica única y exclusivamente a elaborar guías quirúrgicas como auxiliar en la colocación de implantes dentales de la marca DIO.</p>
+<p>Aunado a lo anterior, las partes acuerdan que la elaboración de estudios fuera de las instalaciones de DIOnavi Center estarán sujetos al siguiente término general:</p>
+<ul><li>Confirmo que los datos de escaneo y tomografías para la realización de la planeación que sean realizados fuera de las instalaciones de DIOnavi, se encuentran actualizados y que su calidad y visualización es suficiente para la situación de la planificación y solución final prevista.</li></ul>
+<p>Para el uso adecuado de la guía quirúrgica DIOnavi se debe analizar el caso en particular detenidamente para que no exista ninguna complicación. La guía quirúrgica es un dispositivo auxiliar, por lo tanto DIOnavi a través de DIO Corporation México, S.A. de C.V., no se hace responsable del resultado obtenido.</p>
+<p>Es del conocimiento del Médico Operador que la planeación y guía quirúrgica DIOnavi es compatible únicamente con DIOnavi Master Kit, DIOnavi Narrow Kit, DIOnavi Sinus Crestal Approach Kit y DIOnavi Fix &amp; Pin Kit según lo requiera el caso, y que el uso de otros sistemas puede alterar el resultado final. En tal situación, DIO CORPORATION MEXICO, S.A. DE C.V., no se hace responsable por los resultados obtenidos.</p>
+<div class="sig"><div class="sig-name">${carta.signed_by}</div><div class="sig-line"></div><div class="sig-lbl">Firma Digital — Médico Operador</div><div class="sig-ts">Firmado digitalmente el ${dateStr} a las ${timeStr} hrs.</div></div>
+<div class="footer">DIO CORPORATION MÉXICO, S.A. DE C.V. — DIOnavi Lab Platform · Documento firmado digitalmente</div>
+<script>window.onload=()=>{window.focus();window.print();}<\/script></body></html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) { const a = document.createElement('a'); a.href = url; a.download = `carta-responsiva-${c.patient_name.replace(/\s+/g, '-')}.html`; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
   const downloadImage = async (url, index) => {
     try {
       const res  = await fetch(url);
@@ -645,9 +676,16 @@ export default function CaseDashboard() {
                                 {isActive && selectedCase.status === 'pending_payment_confirmation' && (
                                   <div style={{ marginTop: 10, background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 6, padding: '12px 14px' }}>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: '#0f766e', marginBottom: 4 }}>Comprobante Recibido</div>
-                                    <div style={{ fontSize: 12.5, color: C.gray700, lineHeight: 1.5 }}>
+                                    <div style={{ fontSize: 12.5, color: C.gray700, lineHeight: 1.5, marginBottom: selectedCase.case_details?.carta_responsiva ? 10 : 0 }}>
                                       Tu comprobante de pago fue enviado correctamente. El laboratorio lo verificará y confirmará en breve para iniciar la producción.
                                     </div>
+                                    {selectedCase.case_details?.carta_responsiva && (
+                                      <button onClick={() => downloadCarta(selectedCase)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#fff', border: '1px solid #99f6e4', borderRadius: 6, fontSize: 12, fontWeight: 500, color: '#0f766e', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v13m-5-5l5 5 5-5M5 20h14"/></svg>
+                                        Descargar Carta Responsiva firmada
+                                      </button>
+                                    )}
                                   </div>
                                 )}
 
@@ -828,6 +866,26 @@ export default function CaseDashboard() {
                           </table>
                         </div>
                       </div>
+
+                      {/* Carta Responsiva download */}
+                      {selectedCase.case_details?.carta_responsiva && (
+                        <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6 }}>
+                          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Carta Responsiva</div>
+                          </div>
+                          <div style={{ padding: '14px 20px' }}>
+                            <div style={{ fontSize: 12, color: C.gray500, marginBottom: 10 }}>
+                              Firmada por <strong style={{ color: C.gray700 }}>{selectedCase.case_details.carta_responsiva.signed_by}</strong>
+                              <br />el {new Date(selectedCase.case_details.carta_responsiva.signed_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </div>
+                            <button onClick={() => downloadCarta(selectedCase)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: C.navy, border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 500, color: 'white', cursor: 'pointer', fontFamily: 'inherit', justifyContent: 'center' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v13m-5-5l5 5 5-5M5 20h14"/></svg>
+                              Descargar PDF
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Special notes */}
                       {selectedCase.special_notes && (
