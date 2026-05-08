@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -20,6 +20,17 @@ import PrivateRoute from './components/PrivateRoute';
 import StaffPrivateRoute from './components/StaffPrivateRoute';
 
 function App() {
+  useEffect(() => {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: '79595858-1bd8-41d0-b78b-5519b43c9e96',
+        notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true,
+      });
+    });
+  }, []);
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">

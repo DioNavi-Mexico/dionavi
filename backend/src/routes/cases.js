@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const supabase = require('../utils/supabase');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 const { randomUUID } = require('crypto');
 
@@ -137,6 +138,11 @@ router.post('/', uploadPhotos.fields([
       })
       .eq('id', caseId);
 
+    sendPushNotification({
+      title: 'Nuevo caso recibido',
+      message: `Caso de ${patient_name} enviado — pendiente de validación`,
+    }).catch(() => {});
+
     res.status(201).json({
       message: 'Case submitted successfully',
       caseId,
@@ -227,6 +233,11 @@ router.post('/:caseId/approve-planning', async (req, res) => {
 
     if (error || !data) return res.status(404).json({ error: 'Case not found or not pending approval' });
 
+    sendPushNotification({
+      title: 'Planeación aprobada',
+      message: `Caso de ${data.patient_name} aprobado — listo para cotización`,
+    }).catch(() => {});
+
     await supabase.from('audit_log').insert({
       action: 'planning_approved_by_doctor',
       resource_type: 'case',
@@ -266,6 +277,11 @@ router.post('/:caseId/request-revision', async (req, res) => {
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Case not found or not pending approval' });
+
+    sendPushNotification({
+      title: 'Revisión solicitada',
+      message: `El médico solicitó cambios en la planeación de ${data.patient_name}`,
+    }).catch(() => {});
 
     await supabase.from('audit_log').insert({
       action: 'planning_revision_requested',
@@ -321,6 +337,11 @@ router.post('/:caseId/approve-quotation', uploadSlip.single('payment_slip'), asy
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Case not found or not quoted' });
+
+    sendPushNotification({
+      title: 'Comprobante recibido',
+      message: `Caso de ${data.patient_name} — comprobante enviado, pendiente de confirmación de pago`,
+    }).catch(() => {});
 
     await supabase.from('audit_log').insert({
       action: 'quotation_approved_by_doctor',
@@ -385,6 +406,11 @@ router.post('/:caseId/confirm-payment', async (req, res) => {
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Case not found or not pending payment confirmation' });
+
+    sendPushNotification({
+      title: 'Pago confirmado',
+      message: `Caso de ${data.patient_name} aprobado — listo para producción`,
+    }).catch(() => {});
 
     await supabase.from('audit_log').insert({
       action: 'payment_confirmed_by_staff',

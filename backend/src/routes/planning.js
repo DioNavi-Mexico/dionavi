@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const supabase = require('../utils/supabase');
 const { sendPlanningApprovalEmail } = require('../utils/mailer');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -176,6 +177,11 @@ router.post('/:caseId/submit', upload.array('planning_files', 10), async (req, r
       resource_id: caseId,
       new_value: { files_count: uploadedPaths.length, planner_notes }
     });
+
+    sendPushNotification({
+      title: 'Planeación enviada al médico',
+      message: `Planeación del caso ${caseId} enviada — esperando aprobación del médico`,
+    }).catch(() => {});
 
     // Notify doctor
     const { data: caseWithDoctor } = await supabase

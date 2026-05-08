@@ -42,6 +42,13 @@ export default function StaffLogin() {
       localStorage.setItem('staff_token', data.token);
       localStorage.setItem('staff_user', JSON.stringify(data.user));
 
+      // Ask for browser push notification permission after login
+      if (window.OneSignalDeferred) {
+        window.OneSignalDeferred.push(async function(OneSignal) {
+          await OneSignal.Notifications.requestPermission();
+        });
+      }
+
       navigate(ROLE_ROUTES[data.user.role] || '/admin/dashboard', { replace: true });
     } catch {
       setError('Sin conexión — ¿el servidor está corriendo?');

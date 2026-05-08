@@ -3,6 +3,7 @@ const router = express.Router();
 const supabase = require('../utils/supabase');
 const generateQuotationPDF = require('../utils/generateQuotationPDF');
 const { sendQuotationEmail } = require('../utils/mailer');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 // GET /api/quotation/planned — cases approved by doctor, ready to quote
 router.get('/planned', async (req, res) => {
@@ -97,6 +98,11 @@ router.post('/:caseId/generate', async (req, res) => {
       resource_id: caseId,
       new_value: { total: computedTotal, items_count: items.length }
     });
+
+    sendPushNotification({
+      title: 'Cotización generada',
+      message: `Cotización de ${data.patient_name} enviada al médico`,
+    }).catch(() => {});
 
     // Generate PDF and email to doctor (non-blocking — don't fail the request if email fails)
     const doctorEmail = data.doctors?.email;

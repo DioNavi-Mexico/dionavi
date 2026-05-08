@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../utils/supabase');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 // GET /api/validation/pending — All cases waiting for Rebe to validate
 router.get('/pending', async (req, res) => {
@@ -34,6 +35,11 @@ router.post('/:caseId/approve', async (req, res) => {
 
     if (error || !data) return res.status(404).json({ error: 'Case not found' });
 
+    sendPushNotification({
+      title: 'Archivos validados',
+      message: `Caso de ${data.patient_name} listo para planeación`,
+    }).catch(() => {});
+
     // Log the action
     await supabase.from('audit_log').insert({
       action: 'files_approved',
@@ -65,6 +71,11 @@ router.post('/:caseId/reject', async (req, res) => {
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Case not found' });
+
+    sendPushNotification({
+      title: 'Reenvío solicitado',
+      message: `Se solicitó reenvío de archivos para el caso de ${data.patient_name}`,
+    }).catch(() => {});
 
     await supabase.from('audit_log').insert({
       action: 'files_rejected',
