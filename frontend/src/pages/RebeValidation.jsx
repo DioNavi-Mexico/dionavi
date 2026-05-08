@@ -53,7 +53,13 @@ export default function RebeValidation() {
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState({ msg: '', error: false });
 
-  useEffect(() => { fetchPending(); }, []);
+  useEffect(() => {
+    fetchPending();
+    const id = setInterval(fetchPending, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchPending(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
 
   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('staff_token')}` });
 

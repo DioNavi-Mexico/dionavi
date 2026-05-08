@@ -80,10 +80,15 @@ export default function PlannerInterface() {
 
   useEffect(() => {
     fetchAll();
+    const id = setInterval(fetchAll, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll(); };
+    document.addEventListener('visibilitychange', onVisible);
     const prevent = (e) => e.preventDefault();
     window.addEventListener('dragover', prevent);
     window.addEventListener('drop', prevent);
     return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('dragover', prevent);
       window.removeEventListener('drop', prevent);
     };

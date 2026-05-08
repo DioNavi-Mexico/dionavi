@@ -43,8 +43,10 @@ export default function LabProduction() {
 
   useEffect(() => { fetchCases(); }, [fetchCases]);
   useEffect(() => {
-    const id = setInterval(fetchCases, 60000);
-    return () => clearInterval(id);
+    const id = setInterval(fetchCases, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchCases(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [fetchCases]);
 
   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('staff_token')}` });

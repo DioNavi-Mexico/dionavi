@@ -151,7 +151,13 @@ export default function ValeriaQuotation() {
   const [resendLoading, setResendLoading] = useState(false);
   const [toast, setToast]             = useState({ msg: '', type: 'success' });
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+    const id = setInterval(fetchAll, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
 
   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('staff_token')}` });
 
