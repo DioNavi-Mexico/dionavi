@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import StaffLayout from '../components/StaffLayout';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -129,29 +130,13 @@ export default function RebeValidation() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <StaffLayout breadcrumb="Validación de archivos">
       {/* Toast */}
       {toast.msg && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 text-white text-sm rounded-lg shadow-lg ${toast.error ? 'bg-red-500' : 'bg-green-600'}`}>
           {toast.msg}
         </div>
       )}
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded flex items-center justify-center" style={{ backgroundColor: '#1F3863' }}>
-            <span className="text-white text-xs font-bold">DIO</span>
-          </div>
-          <span className="text-sm font-semibold text-gray-800">DIONavi Lab</span>
-          <span className="text-gray-300 mx-1">·</span>
-          <span className="text-sm text-gray-500">Validación de archivos</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400"></div>
-          <span className="text-xs text-gray-500">Rebe</span>
-        </div>
-      </div>
 
       <div className="p-8 max-w-5xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
@@ -363,6 +348,6 @@ export default function RebeValidation() {
           </div>
         </div>
       )}
-    </div>
+    </StaffLayout>
   );
 }
