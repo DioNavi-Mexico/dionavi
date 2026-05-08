@@ -121,6 +121,17 @@ export default function RebeValidation() {
     }
   };
 
+  const downloadFile = async (caseId, field) => {
+    try {
+      const res = await fetch(`${API}/validation/${caseId}/download/${field}`, { headers: authHeaders() });
+      if (!res.ok) { showToast('No se pudo obtener el archivo', true); return; }
+      const { url } = await res.json();
+      window.open(url, '_blank');
+    } catch {
+      showToast('Error al descargar el archivo', true);
+    }
+  };
+
   const formatDate = (iso) => {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -283,7 +294,13 @@ export default function RebeValidation() {
                     <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded text-sm">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                       <span className="text-gray-600">CBCT / Tomografía</span>
-                      <span className="ml-auto text-xs text-green-600 font-medium">✓ Recibido</span>
+                      <span className="text-xs text-green-600 font-medium">✓ Recibido</span>
+                      <button
+                        onClick={() => downloadFile(selected.id, 'cbct')}
+                        className="ml-auto flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Descargar
+                      </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded text-sm">
@@ -294,7 +311,13 @@ export default function RebeValidation() {
                     <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded text-sm">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                       <span className="text-gray-600">Escaneo oral</span>
-                      <span className="ml-auto text-xs text-green-600 font-medium">✓ Recibido</span>
+                      <span className="text-xs text-green-600 font-medium">✓ Recibido</span>
+                      <button
+                        onClick={() => downloadFile(selected.id, 'scan')}
+                        className="ml-auto flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-100">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Descargar
+                      </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded text-sm">

@@ -91,4 +91,33 @@ router.post('/:caseId/reject', async (req, res) => {
   }
 });
 
+// GET /api/validation/:caseId/download/:field — Signed download URL for cbct or scan file
+router.get('/:caseId/download/:field', async (req, res) => {
+  try {
+    const { caseId, field } = req.params;
+    if (!['cbct', 'scan'].includes(field)) return res.status(400).json({ error: 'Invalid field' });
+
+    const { data: caseData, error } = await supabase
+      .from('cases')
+      .select('cbct_file_path, scan_file_path')
+      .eq('id', caseId)
+      .single();
+
+    if (error || !caseData) return res.status(404).json({ error: 'Case not found' });
+
+    const filePath = field === 'cbct' ? caseData.cbct_file_path : caseData.scan_file_path;
+    if (!filePath) return res.status(404).json({ error: 'File not found' });
+
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('case-files')
+      .createSignedUrl(filePath, 3600);
+
+    if (urlError || !urlData?.signedUrl) return res.status(500).json({ error: 'Could not generate download URL' });
+
+    res.json({ url: urlData.signedUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
