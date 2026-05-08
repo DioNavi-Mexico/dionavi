@@ -35,6 +35,7 @@ const STATUS_CONFIG = {
   quoted:                        { label: 'Cotización lista',      color: C.warning, bg: C.warningBg   },
   pending_payment_confirmation:  { label: 'Pago en revisión',      color: '#0f766e', bg: '#ccfbf1'     },
   approved:                      { label: 'En producción',         color: C.success, bg: C.successBg   },
+  delivered:                     { label: 'Entregado',             color: '#065f46', bg: '#d1fae5'      },
 };
 
 const TIMELINE_STEPS = [
@@ -194,10 +195,11 @@ export default function CaseDashboard() {
   const fmtMXN  = (n)   => '$' + Math.round(Number(n)).toLocaleString('es-MX');
   const caseTag = (c)   => `DN-${c.id.slice(-6).toUpperCase()}`;
 
-  const pendingApproval = cases.filter(c => c.status === 'pending_doctor_approval');
-  const pendingQuote    = cases.filter(c => c.status === 'quoted');
-  const activeCases     = cases.filter(c => !['approved'].includes(c.status));
-  const actionNeeded    = pendingApproval.length + pendingQuote.length;
+  const pendingApproval  = cases.filter(c => c.status === 'pending_doctor_approval');
+  const pendingQuote     = cases.filter(c => c.status === 'quoted');
+  const completedCases   = cases.filter(c => ['approved', 'delivered'].includes(c.status));
+  const activeCases      = cases.filter(c => !['approved', 'delivered'].includes(c.status));
+  const actionNeeded     = pendingApproval.length + pendingQuote.length;
 
   // ── Nav item ──
   const navItems = [
@@ -339,7 +341,7 @@ export default function CaseDashboard() {
                 {[
                   { label: 'Casos Activos',      value: activeCases.length,                                            color: C.blue   },
                   { label: 'Requiere tu Acción',  value: actionNeeded,                                                  color: C.purple },
-                  { label: 'Casos Completados',   value: cases.filter(c => c.status === 'approved').length,             color: C.success},
+                  { label: 'Casos Completados',   value: completedCases.length,                                         color: C.success},
                   { label: 'Total de Casos',       value: cases.length,                                                  color: C.navy   },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, padding: '18px 20px' }}>
@@ -394,49 +396,90 @@ export default function CaseDashboard() {
                 </div>
               ) : (
                 /* Desktop table */
-                <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Casos Activos</div>
-                    <div style={{ fontSize: 12, color: C.gray500, marginTop: 1 }}>Haz clic en cualquier fila para ver el seguimiento del caso</div>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: C.gray100, borderBottom: `1px solid ${C.border}` }}>
-                        {['Paciente', 'Tipo de Caso', 'Enviado', 'Cirugía', 'Estado', 'Acción'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cases.map(c => (
-                        <tr key={c.id} onClick={() => openTracking(c)}
-                          style={{ borderBottom: `1px solid ${C.gray200}`, cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background = C.gray100}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <td style={{ padding: '13px 16px' }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{c.patient_name}</div>
-                            <span style={{ fontFamily: 'monospace', fontSize: 10.5, background: C.gray100, border: `1px solid ${C.border}`, color: C.gray500, padding: '2px 6px', borderRadius: 4, marginTop: 3, display: 'inline-block' }}>
-                              {caseTag(c)}
-                            </span>
-                          </td>
-                          <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{c.case_type || '—'}</td>
-                          <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{fmt(c.created_at)}</td>
-                          <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{fmt(c.tentative_surgery_date)}</td>
-                          <td style={{ padding: '13px 16px' }}><StatusBadge status={c.status} /></td>
-                          <td style={{ padding: '13px 16px' }}>
-                            {c.status === 'pending_doctor_approval' ? (
-                              <span style={{ fontSize: 12, fontWeight: 500, color: C.purple }}>Revisar Planeación →</span>
-                            ) : c.status === 'quoted' ? (
-                              <span style={{ fontSize: 12, fontWeight: 500, color: C.warning }}>Ver Cotización →</span>
-                            ) : (
-                              <span style={{ fontSize: 12, color: C.gray400 }}>Ver seguimiento</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  {/* Active cases */}
+                  {activeCases.length > 0 && (
+                    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden', marginBottom: 20 }}>
+                      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Casos Activos</div>
+                        <div style={{ fontSize: 12, color: C.gray500, marginTop: 1 }}>Haz clic en cualquier fila para ver el seguimiento del caso</div>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: C.gray100, borderBottom: `1px solid ${C.border}` }}>
+                            {['Paciente', 'Tipo de Caso', 'Enviado', 'Cirugía', 'Estado', 'Acción'].map(h => (
+                              <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeCases.map(c => (
+                            <tr key={c.id} onClick={() => openTracking(c)}
+                              style={{ borderBottom: `1px solid ${C.gray200}`, cursor: 'pointer' }}
+                              onMouseEnter={e => e.currentTarget.style.background = C.gray100}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                              <td style={{ padding: '13px 16px' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{c.patient_name}</div>
+                                <span style={{ fontFamily: 'monospace', fontSize: 10.5, background: C.gray100, border: `1px solid ${C.border}`, color: C.gray500, padding: '2px 6px', borderRadius: 4, marginTop: 3, display: 'inline-block' }}>
+                                  {caseTag(c)}
+                                </span>
+                              </td>
+                              <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{c.case_type || '—'}</td>
+                              <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{fmt(c.created_at)}</td>
+                              <td style={{ padding: '13px 16px', fontSize: 13, color: C.gray700 }}>{fmt(c.tentative_surgery_date)}</td>
+                              <td style={{ padding: '13px 16px' }}><StatusBadge status={c.status} /></td>
+                              <td style={{ padding: '13px 16px' }}>
+                                {c.status === 'pending_doctor_approval' ? (
+                                  <span style={{ fontSize: 12, fontWeight: 500, color: C.purple }}>Revisar Planeación →</span>
+                                ) : c.status === 'quoted' ? (
+                                  <span style={{ fontSize: 12, fontWeight: 500, color: C.warning }}>Ver Cotización →</span>
+                                ) : (
+                                  <span style={{ fontSize: 12, color: C.gray400 }}>Ver seguimiento</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Completed cases */}
+                  {completedCases.length > 0 && (
+                    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: C.gray500 }}>Casos Completados</div>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: C.gray100, borderBottom: `1px solid ${C.border}` }}>
+                            {['Paciente', 'Tipo de Caso', 'Enviado', 'Estado'].map(h => (
+                              <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {completedCases.map(c => (
+                            <tr key={c.id} onClick={() => openTracking(c)}
+                              style={{ borderBottom: `1px solid ${C.gray200}`, cursor: 'pointer', opacity: 0.7 }}
+                              onMouseEnter={e => { e.currentTarget.style.background = C.gray100; e.currentTarget.style.opacity = 1; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = 0.7; }}>
+                              <td style={{ padding: '11px 16px' }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: C.gray700 }}>{c.patient_name}</div>
+                                <span style={{ fontFamily: 'monospace', fontSize: 10.5, background: C.gray100, border: `1px solid ${C.border}`, color: C.gray500, padding: '2px 6px', borderRadius: 4, marginTop: 3, display: 'inline-block' }}>
+                                  {caseTag(c)}
+                                </span>
+                              </td>
+                              <td style={{ padding: '11px 16px', fontSize: 13, color: C.gray500 }}>{c.case_type || '—'}</td>
+                              <td style={{ padding: '11px 16px', fontSize: 13, color: C.gray500 }}>{fmt(c.created_at)}</td>
+                              <td style={{ padding: '11px 16px' }}><StatusBadge status={c.status} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
