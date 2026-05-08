@@ -713,22 +713,36 @@ export default function CaseDashboard() {
                                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                                           Carta Responsiva <span style={{ color: C.danger }}>*</span>
                                         </div>
-                                        <div style={{ height: 160, overflowY: 'auto', border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 14px', background: C.gray100, fontSize: 11.5, color: C.gray700, lineHeight: 1.7, marginBottom: 10 }}>
-                                          <strong>CARTA RESPONSIVA — GUÍA QUIRÚRGICA DE IMPLANTES</strong>
+                                        <div style={{ height: 220, overflowY: 'auto', border: `1px solid ${C.border}`, borderRadius: 6, padding: '10px 14px', background: C.gray100, fontSize: 11.5, color: C.gray700, lineHeight: 1.7, marginBottom: 10 }}>
+                                          <strong>CARTA RESPONSIVA</strong>
                                           <br/><br/>
-                                          Yo, el(la) Doctor(a) abajo firmante, en mi calidad de profesional de la salud bucal, manifiesto lo siguiente:
+                                          En base a los estudios médicos profesionales y la experiencia profesional, se ofrece el trabajo de elaboración de guías quirúrgicas para el tratamiento de implantes dentales. Con base al servicio de planeación del tratamiento de implante dental, el Centro Digital DIOnavi se dedica a elaborar guías quirúrgicas como auxiliar en la colocación de implantes dentales de la marca DIO®.
                                           <br/><br/>
-                                          <strong>1. INFORMACIÓN CLÍNICA:</strong> Certifico que la información clínica, radiológica y fotográfica enviada al Laboratorio DIONavi es verídica, completa y representa fielmente la condición actual del paciente descrito en esta orden.
+                                          Para ello se establecen los términos generales de aprobación:
                                           <br/><br/>
-                                          <strong>2. RESPONSABILIDAD PROFESIONAL:</strong> Reconozco que la guía quirúrgica es un auxiliar de diagnóstico y planificación. La decisión clínica final, la ejecución del procedimiento quirúrgico y sus resultados son responsabilidad exclusiva del profesional tratante.
+                                          • El cliente dará su consentimiento y aprobación a través de la presente carta responsiva de que 3shape, el software de 3shape Implant Studio, en base a la confirmación del fresado de la cirugía y verificación de la información proporcionada con relación a la cirugía requerida.
                                           <br/><br/>
-                                          <strong>3. PLAN QUIRÚRGICO:</strong> Confirmo que la planificación aprobada refleja mi criterio clínico y que he verificado la posición, angulación y profundidad de los implantes propuestos.
+                                          • El cliente dará su consentimiento y aprobación a través de la presente carta responsiva de que 3shape y su distribuidor (DIOnavi) a través de DIO Corporation México, S.A. de C.V., no tendrán responsabilidad alguna por daños y/o lesiones resultantes de su propia planeación y tratamiento.
                                           <br/><br/>
-                                          <strong>4. CONSENTIMIENTO DEL PACIENTE:</strong> Declaro que el paciente cuenta con el estado de salud adecuado para el procedimiento y ha otorgado su consentimiento informado para la intervención planificada.
+                                          De igual manera, se aprueba la planificación de la siguiente manera:
                                           <br/><br/>
-                                          <strong>5. CONDICIONES COMERCIALES:</strong> Acepto los términos y condiciones del servicio y autorizo el inicio de producción de la guía quirúrgica una vez confirmado el pago correspondiente. Entiendo que no proceden cancelaciones ni reembolsos una vez iniciada la fabricación.
+                                          • Estoy satisfecho(a) y apruebo los aspectos médicos y clínicos de mi planificación.<br/>
+                                          • Estoy de acuerdo con la planificación a la solución de pines de anclaje.<br/>
+                                          • Estoy de acuerdo con que he llevado a cabo la planificación cuidadosamente, elegí el implante más adecuado, la zona de seguridad apropiada en relación con los dientes adyacentes, restauraciones dentales principales, estructuras anatómicas e implantes ya colocados o por colocar.<br/>
+                                          • Estoy de acuerdo con la aplicación del marcado del nervio mandibular, ya que fue realizado correctamente.<br/>
+                                          • Estoy de acuerdo en que ni 3shape ni sus distribuidores realizarán exámenes clínicos.
                                           <br/><br/>
-                                          Al proporcionar mi firma digital, acepto todos los términos anteriores bajo protesta de decir verdad.
+                                          El Médico Operador es representante de medicina dental y manifiesta que es su interés adquirir la guía DIOnavi en los términos y bajo las condiciones que el Doctor lo requirió en la etapa de planeación, así como las diferentes modificaciones que se realizaron para lograr su autorización y proceder a la elaboración de la guía de acuerdo con las características requeridas para la cirugía de tratamiento de implantes dentales.
+                                          <br/><br/>
+                                          Ambas partes acuerdan y reconocen que el Médico Operador es responsable de los resultados de la cirugía realizada aún y con la utilización de la guía DIOnavi, y que el Centro Digital DIOnavi se dedica única y exclusivamente a elaborar guías quirúrgicas como auxiliar en la colocación de implantes dentales de la marca DIO.
+                                          <br/><br/>
+                                          Aunado a lo anterior, las partes acuerdan que la elaboración de estudios fuera de las instalaciones de DIOnavi Center estarán sujetos al siguiente término general:
+                                          <br/><br/>
+                                          • Confirmo que los datos de escaneo y tomografías para la realización de la planeación que sean realizados fuera de las instalaciones de DIOnavi, se encuentran actualizados y que su calidad y visualización es suficiente para la situación de la planificación y solución final prevista.
+                                          <br/><br/>
+                                          Para el uso adecuado de la guía quirúrgica DIOnavi se debe analizar el caso en particular detenidamente para que no exista ninguna complicación. La guía quirúrgica es un dispositivo auxiliar, por lo tanto DIOnavi a través de DIO Corporation México, S.A. de C.V., no se hace responsable del resultado obtenido.
+                                          <br/><br/>
+                                          Es del conocimiento del Médico Operador que la planeación y guía quirúrgica DIOnavi es compatible únicamente con DIOnavi Master Kit, DIOnavi Narrow Kit, DIOnavi Sinus Crestal Approach Kit y DIOnavi Fix & Pin Kit según lo requiera el caso, y que el uso de otros sistemas puede alterar el resultado final. En tal situación, DIO CORPORATION MEXICO, S.A. DE C.V., no se hace responsable por los resultados obtenidos.
                                         </div>
                                         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
                                           <input type="checkbox" checked={cartaAccepted} onChange={e => setCartaAccepted(e.target.checked)}
