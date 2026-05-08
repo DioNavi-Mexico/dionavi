@@ -4,18 +4,16 @@ const multer = require('multer');
 const path = require('path');
 const supabase = require('../utils/supabase');
 
-// Store uploads in memory so we can send them to Supabase Storage
-const upload = multer({
+const { randomUUID } = require('crypto');
+
+// Only photos go through the backend (small files) — CBCT/scan upload directly browser→Supabase
+const uploadPhotos = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 1000000000 }, // 1GB
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB per photo
   fileFilter: (req, file, cb) => {
-    const allowed = ['.nii', '.dcm', '.stl', '.ply', '.jpg', '.png', '.jpeg', '.zip'];
+    const allowed = ['.jpg', '.png', '.jpeg'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${ext} not allowed`), false);
-    }
+    cb(null, allowed.includes(ext));
   }
 });
 
@@ -44,10 +42,31 @@ async function uploadToStorage(file, caseId, folder) {
   return fileName;
 }
 
-// POST /api/cases — Submit a new case
-router.post('/', upload.fields([
-  { name: 'cbct_file', maxCount: 1 },
-  { name: 'scan_file', maxCount: 1 },
+// GET /api/cases/upload-url — Generate a signed URL for direct browser→Supabase upload
+router.get('/upload-url', async (req, res) => {
+  try {
+    const { field, ext } = req.query;
+    const validFields = ['cbct', 'scan'];
+    const validExts = ['.nii', '.dcm', '.stl', '.ply', '.zip'];
+
+    if (!validFields.includes(field)) return res.status(400).json({ error: 'Invalid field' });
+    if (!validExts.includes(ext?.toLowerCase())) return res.status(400).json({ error: 'Invalid extension' });
+
+    const filePath = `${randomUUID()}/${field}${ext.toLowerCase()}`;
+
+    const { data, error } = await supabase.storage
+      .from('case-files')
+      .createSignedUploadUrl(filePath);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ path: filePath, token: data.token, signedUrl: data.signedUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/cases — Submit a new case (CBCT/scan already uploaded directly; paths come in body)
+router.post('/', uploadPhotos.fields([
   { name: 'reference_photos', maxCount: 10 }
 ]), async (req, res) => {
   try {
@@ -60,16 +79,17 @@ router.post('/', upload.fields([
       implant_count,
       tentative_surgery_date,
       special_notes,
-      case_details
+      case_details,
+      cbct_file_path,
+      scan_file_path
     } = req.body;
 
     if (!doctor_id || !patient_name || !case_type) {
       return res.status(400).json({ error: 'doctor_id, patient_name, and case_type are required' });
     }
 
-    if (!req.files?.cbct_file || !req.files?.scan_file) {
-      return res.status(400).json({ error: 'Both CBCT and scan files are required' });
-    }
+    if (!cbct_file_path) return res.status(400).json({ error: 'CBCT file is required' });
+    if (!scan_file_path) return res.status(400).json({ error: 'Scan file is required' });
 
     let parsedDetails = null;
     if (case_details) {
@@ -98,12 +118,9 @@ router.post('/', upload.fields([
 
     const caseId = newCase.id;
 
-    // Upload files to Supabase Storage
-    const cbctPath = await uploadToStorage(req.files.cbct_file[0], caseId, 'cbct');
-    const scanPath = await uploadToStorage(req.files.scan_file[0], caseId, 'scan');
-
+    // CBCT and scan were uploaded directly browser→Supabase; just store the paths
     let refPhotoPaths = [];
-    if (req.files.reference_photos) {
+    if (req.files?.reference_photos) {
       for (let i = 0; i < req.files.reference_photos.length; i++) {
         const p = await uploadToStorage(req.files.reference_photos[i], caseId, `ref_${i + 1}`);
         refPhotoPaths.push(p);
@@ -114,8 +131,8 @@ router.post('/', upload.fields([
     await supabase
       .from('cases')
       .update({
-        cbct_file_path: cbctPath,
-        scan_file_path: scanPath,
+        cbct_file_path: cbct_file_path,
+        scan_file_path: scan_file_path,
         reference_photos: refPhotoPaths
       })
       .eq('id', caseId);

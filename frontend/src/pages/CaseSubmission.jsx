@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -42,6 +43,7 @@ export default function CaseSubmission() {
   const [photoFiles, setPhotoFiles] = useState([]);
 
   const [loading, setLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -60,6 +62,39 @@ export default function CaseSubmission() {
 
     setLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      const getExt = (file) => '.' + file.name.split('.').pop().toLowerCase();
+
+      // Step 1: Get signed upload URLs from backend
+      setUploadStatus('Preparando archivos...');
+      const [cbctUrlRes, scanUrlRes] = await Promise.all([
+        fetch(`${API}/cases/upload-url?field=cbct&ext=${encodeURIComponent(getExt(cbctFile))}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API}/cases/upload-url?field=scan&ext=${encodeURIComponent(getExt(scanFile))}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      if (!cbctUrlRes.ok || !scanUrlRes.ok) throw new Error('No se pudo preparar la carga de archivos');
+      const { path: cbctPath, token: cbctToken } = await cbctUrlRes.json();
+      const { path: scanPath, token: scanToken } = await scanUrlRes.json();
+
+      // Step 2: Upload files directly browser→Supabase (no backend memory bottleneck)
+      setUploadStatus('Subiendo CBCT...');
+      const { error: cbctErr } = await supabase.storage
+        .from('case-files')
+        .uploadToSignedUrl(cbctPath, cbctToken, cbctFile);
+      if (cbctErr) throw new Error('Error al subir CBCT: ' + cbctErr.message);
+
+      setUploadStatus('Subiendo escaneo...');
+      const { error: scanErr } = await supabase.storage
+        .from('case-files')
+        .uploadToSignedUrl(scanPath, scanToken, scanFile);
+      if (scanErr) throw new Error('Error al subir escaneo: ' + scanErr.message);
+
+      // Step 3: Submit case metadata + file paths to backend
+      setUploadStatus('Enviando caso...');
       const caseDetails = {
         service_types: Object.keys(serviceTypes).filter(k => serviceTypes[k]),
         health_conditions: [
@@ -89,11 +124,10 @@ export default function CaseSubmission() {
       formData.append('tentative_surgery_date', form.tentative_surgery_date);
       formData.append('special_notes', form.special_notes);
       formData.append('case_details', JSON.stringify(caseDetails));
-      formData.append('cbct_file', cbctFile);
-      formData.append('scan_file', scanFile);
+      formData.append('cbct_file_path', cbctPath);
+      formData.append('scan_file_path', scanPath);
       photoFiles.forEach(f => formData.append('reference_photos', f));
 
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API}/cases`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -107,9 +141,10 @@ export default function CaseSubmission() {
       setTimeout(() => navigate('/my-cases'), 3000);
 
     } catch (err) {
-      setError('Error de conexión — ¿está corriendo el backend?');
+      setError(err.message || 'Error de conexión — verifica tu conexión a internet');
     } finally {
       setLoading(false);
+      setUploadStatus('');
     }
   };
 
@@ -488,7 +523,7 @@ export default function CaseSubmission() {
                 className="px-6 py-2.5 text-sm font-medium text-white rounded-lg flex items-center gap-2 disabled:opacity-60"
                 style={{ backgroundColor: '#1F3863' }}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 19-7z"/></svg>
-                {loading ? 'Enviando...' : 'Enviar caso'}
+                {loading ? (uploadStatus || 'Enviando...') : 'Enviar caso'}
               </button>
             </div>
 
