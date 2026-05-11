@@ -16,6 +16,7 @@ import StaffPending from './pages/StaffPending';
 import LabProduction from './pages/LabProduction';
 import StaffPortal from './pages/StaffPortal';
 import StaffLogin from './pages/StaffLogin';
+import AvisoPrivacidad from './pages/AvisoPrivacidad';
 import PrivateRoute from './components/PrivateRoute';
 import StaffPrivateRoute from './components/StaffPrivateRoute';
 
@@ -60,6 +61,9 @@ function App() {
 
           {/* Manager Routes */}
           <Route path="/admin/dashboard" element={<StaffPrivateRoute allowedRoles={['admin']}><ManagerDashboard /></StaffPrivateRoute>} />
+
+          {/* Legal */}
+          <Route path="/aviso-de-privacidad" element={<AvisoPrivacidad />} />
 
           {/* Default Route */}
           <Route path="/" element={<DoctorLogin />} />

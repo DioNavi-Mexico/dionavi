@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -33,6 +33,7 @@ export default function DoctorLogin({ isRegister = false }) {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
   const [registered, setRegistered] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }));
 
@@ -235,7 +236,27 @@ export default function DoctorLogin({ isRegister = false }) {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading}
+              {isRegister && (
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="privacy"
+                    checked={privacyAccepted}
+                    onChange={e => setPrivacyAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 cursor-pointer"
+                    style={{ accentColor: C.navy }}
+                  />
+                  <label htmlFor="privacy" className="text-xs text-gray-600 leading-relaxed cursor-pointer">
+                    He leído y acepto el{' '}
+                    <Link to="/aviso-de-privacidad" target="_blank" className="font-medium underline" style={{ color: C.navy }}>
+                      Aviso de Privacidad
+                    </Link>{' '}
+                    de DIONavi Lab.
+                  </label>
+                </div>
+              )}
+
+              <button type="submit" disabled={loading || (isRegister && !privacyAccepted)}
                 className="w-full py-2 text-sm font-medium text-white rounded transition-opacity disabled:opacity-60"
                 style={{ backgroundColor: C.navy }}>
                 {loading ? 'Procesando...' : isRegister ? 'Crear cuenta' : 'Entrar'}
