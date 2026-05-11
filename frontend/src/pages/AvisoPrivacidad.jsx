@@ -80,7 +80,7 @@ export default function AvisoPrivacidad() {
                 Usted tiene derecho a <strong>Acceder, Rectificar, Cancelar u Oponerse</strong> al tratamiento de sus
                 datos personales (derechos ARCO). Para ejercerlos, envíe su solicitud a:
               </p>
-              <p className="mt-1 font-medium text-gray-800">privacidad@dioimplant.com.mx</p>
+              <p className="mt-1 font-medium text-gray-800">diomexicodio@gmail.com</p>
               <p className="mt-1 text-gray-500 text-xs">
                 Daremos respuesta dentro de los 20 días hábiles siguientes a la recepción de su solicitud.
               </p>
