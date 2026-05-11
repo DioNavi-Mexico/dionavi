@@ -38,6 +38,7 @@ export default function CaseSubmission() {
   const [fullArchUpper, setFullArchUpper] = useState({ enabled: false, implants: '' });
   const [fullArchLower, setFullArchLower] = useState({ enabled: false, implants: '' });
 
+  const [filesFromRadiology, setFilesFromRadiology] = useState(false);
   const [cbctFile, setCbctFile] = useState(null);
   const [scanFile, setScanFile] = useState(null);
   const [photoFiles, setPhotoFiles] = useState([]);
@@ -57,41 +58,50 @@ export default function CaseSubmission() {
     e.preventDefault();
     setError('');
 
-    if (!cbctFile) { setError('Debes adjuntar el archivo CBCT'); return; }
-    if (!scanFile) { setError('Debes adjuntar el archivo de escaneo'); return; }
+    if (!filesFromRadiology) {
+      if (!cbctFile) { setError('Debes adjuntar el archivo CBCT'); return; }
+      if (!scanFile) { setError('Debes adjuntar el archivo de escaneo'); return; }
+    }
 
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const getExt = (file) => '.' + file.name.split('.').pop().toLowerCase();
 
-      // Step 1: Get signed upload URLs from backend
-      setUploadStatus('Preparando archivos...');
-      const [cbctUrlRes, scanUrlRes] = await Promise.all([
-        fetch(`${API}/cases/upload-url?field=cbct&ext=${encodeURIComponent(getExt(cbctFile))}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${API}/cases/upload-url?field=scan&ext=${encodeURIComponent(getExt(scanFile))}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
+      let cbctPath = null;
+      let scanPath = null;
 
-      if (!cbctUrlRes.ok || !scanUrlRes.ok) throw new Error('No se pudo preparar la carga de archivos');
-      const { path: cbctPath, token: cbctToken } = await cbctUrlRes.json();
-      const { path: scanPath, token: scanToken } = await scanUrlRes.json();
+      if (!filesFromRadiology) {
+        // Step 1: Get signed upload URLs from backend
+        setUploadStatus('Preparando archivos...');
+        const [cbctUrlRes, scanUrlRes] = await Promise.all([
+          fetch(`${API}/cases/upload-url?field=cbct&ext=${encodeURIComponent(getExt(cbctFile))}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch(`${API}/cases/upload-url?field=scan&ext=${encodeURIComponent(getExt(scanFile))}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
 
-      // Step 2: Upload files directly browser→Supabase (no backend memory bottleneck)
-      setUploadStatus('Subiendo CBCT...');
-      const { error: cbctErr } = await supabase.storage
-        .from('case-files')
-        .uploadToSignedUrl(cbctPath, cbctToken, cbctFile);
-      if (cbctErr) throw new Error('Error al subir CBCT: ' + cbctErr.message);
+        if (!cbctUrlRes.ok || !scanUrlRes.ok) throw new Error('No se pudo preparar la carga de archivos');
+        const { path: cp, token: cbctToken } = await cbctUrlRes.json();
+        const { path: sp, token: scanToken } = await scanUrlRes.json();
+        cbctPath = cp;
+        scanPath = sp;
 
-      setUploadStatus('Subiendo escaneo...');
-      const { error: scanErr } = await supabase.storage
-        .from('case-files')
-        .uploadToSignedUrl(scanPath, scanToken, scanFile);
-      if (scanErr) throw new Error('Error al subir escaneo: ' + scanErr.message);
+        // Step 2: Upload files directly browser→Supabase
+        setUploadStatus('Subiendo CBCT...');
+        const { error: cbctErr } = await supabase.storage
+          .from('case-files')
+          .uploadToSignedUrl(cbctPath, cbctToken, cbctFile);
+        if (cbctErr) throw new Error('Error al subir CBCT: ' + cbctErr.message);
+
+        setUploadStatus('Subiendo escaneo...');
+        const { error: scanErr } = await supabase.storage
+          .from('case-files')
+          .uploadToSignedUrl(scanPath, scanToken, scanFile);
+        if (scanErr) throw new Error('Error al subir escaneo: ' + scanErr.message);
+      }
 
       // Step 3: Submit case metadata + file paths to backend
       setUploadStatus('Enviando caso...');
@@ -124,8 +134,8 @@ export default function CaseSubmission() {
       formData.append('tentative_surgery_date', form.tentative_surgery_date);
       formData.append('special_notes', form.special_notes);
       formData.append('case_details', JSON.stringify(caseDetails));
-      formData.append('cbct_file_path', cbctPath);
-      formData.append('scan_file_path', scanPath);
+      if (cbctPath) formData.append('cbct_file_path', cbctPath);
+      if (scanPath) formData.append('scan_file_path', scanPath);
       photoFiles.forEach(f => formData.append('reference_photos', f));
 
       const res = await fetch(`${API}/cases`, {
@@ -452,10 +462,27 @@ export default function CaseSubmission() {
 
             {/* Row 3: Files */}
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-gray-100">
+              <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
                 <span className="text-sm font-semibold" style={{ color: '#1F3863' }}>Fotografías y archivos del caso</span>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div
+                    onClick={() => setFilesFromRadiology(v => !v)}
+                    className={`relative w-9 h-5 rounded-full transition-colors ${filesFromRadiology ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${filesFromRadiology ? 'translate-x-4' : ''}`} />
+                  </div>
+                  <span className="text-xs text-gray-600">Los archivos los enviará el centro de radiología</span>
+                </label>
               </div>
               <div className="p-5">
+                {filesFromRadiology ? (
+                  <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Archivos pendientes del centro de radiología</p>
+                      <p className="text-xs text-blue-600 mt-0.5">El caso se enviará sin archivos. Nuestro equipo los adjuntará cuando los reciba del centro de radiología por correo.</p>
+                    </div>
+                  </div>
+                ) : (
                 <div className="grid grid-cols-3 gap-5">
                   {/* CBCT */}
                   <div>
@@ -511,6 +538,7 @@ export default function CaseSubmission() {
                     </label>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 

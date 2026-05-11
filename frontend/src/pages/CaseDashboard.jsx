@@ -209,6 +209,16 @@ export default function CaseDashboard() {
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
 
+  const downloadCaseFile = async (caseId, field) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/cases/${caseId}/download/${field}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { showToast('No se pudo obtener el archivo'); return; }
+      const { url } = await res.json();
+      window.open(url, '_blank');
+    } catch { showToast('Error al descargar el archivo'); }
+  };
+
   const downloadImage = async (url, index) => {
     try {
       const res  = await fetch(url);
@@ -866,6 +876,28 @@ export default function CaseDashboard() {
                           </table>
                         </div>
                       </div>
+
+                      {/* CBCT / Scan downloads */}
+                      {(selectedCase.cbct_file_path || selectedCase.scan_file_path) && (
+                        <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 6 }}>
+                          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: C.navy }}>Mis Archivos</div>
+                          </div>
+                          <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {[
+                              { field: 'cbct', label: 'CBCT / Tomografía', path: selectedCase.cbct_file_path },
+                              { field: 'scan', label: 'Escaneo oral', path: selectedCase.scan_file_path },
+                            ].map(({ field, label, path }) => path ? (
+                              <button key={field} onClick={() => downloadCaseFile(selectedCase.id, field)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: C.gray100, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, color: C.gray700, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span style={{ flex: 1 }}>{label}</span>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.navy} strokeWidth="2.5"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                              </button>
+                            ) : null)}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Carta Responsiva download */}
                       {selectedCase.case_details?.carta_responsiva && (

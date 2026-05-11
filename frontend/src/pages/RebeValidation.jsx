@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import StaffLayout from '../components/StaffLayout';
 
 const API = import.meta.env.VITE_API_URL;
@@ -8,6 +9,7 @@ const STATUS_CONFIG = {
   files_validated:        { label: 'Archivos validados', color: 'bg-green-100 text-green-700' },
   resubmission_requested: { label: 'Reenvío solicitado', color: 'bg-red-100 text-red-700' },
   in_planning:            { label: 'En planeación',      color: 'bg-yellow-100 text-yellow-700' },
+  pending_files:          { label: 'Sin archivos',       color: 'bg-orange-100 text-orange-700' },
 };
 
 function StatusBadge({ status }) {
@@ -45,6 +47,7 @@ function SlaTag({ updatedAt, hours }) {
 }
 
 export default function RebeValidation() {
+  const [tab, setTab] = useState('queue');
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
@@ -53,10 +56,19 @@ export default function RebeValidation() {
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState({ msg: '', error: false });
 
+  // Pending-files tab state
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [loadingPF, setLoadingPF] = useState(false);
+  const [attachTarget, setAttachTarget] = useState(null);
+  const [attachCbct, setAttachCbct] = useState(null);
+  const [attachScan, setAttachScan] = useState(null);
+  const [attachLoading, setAttachLoading] = useState(false);
+
   useEffect(() => {
     fetchPending();
-    const id = setInterval(fetchPending, 30000);
-    const onVisible = () => { if (document.visibilityState === 'visible') fetchPending(); };
+    fetchPendingFiles();
+    const id = setInterval(() => { fetchPending(); fetchPendingFiles(); }, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') { fetchPending(); fetchPendingFiles(); } };
     document.addEventListener('visibilitychange', onVisible);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
@@ -72,6 +84,59 @@ export default function RebeValidation() {
       setCases([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingFiles = async () => {
+    setLoadingPF(true);
+    try {
+      const res = await fetch(`${API}/validation/pending-files`, { headers: authHeaders() });
+      const data = await res.json();
+      setPendingFiles(data.pending || []);
+    } catch {
+      setPendingFiles([]);
+    } finally {
+      setLoadingPF(false);
+    }
+  };
+
+  const handleAttachFiles = async () => {
+    if (!attachCbct || !attachScan || !attachTarget) return;
+    setAttachLoading(true);
+    try {
+      const getExt = (f) => '.' + f.name.split('.').pop().toLowerCase();
+
+      const [cbctUrlRes, scanUrlRes] = await Promise.all([
+        fetch(`${API}/validation/file-upload-url?field=cbct&ext=${encodeURIComponent(getExt(attachCbct))}`, { headers: authHeaders() }),
+        fetch(`${API}/validation/file-upload-url?field=scan&ext=${encodeURIComponent(getExt(attachScan))}`, { headers: authHeaders() }),
+      ]);
+      if (!cbctUrlRes.ok || !scanUrlRes.ok) { showToast('Error al preparar carga de archivos', true); return; }
+
+      const { path: cbctPath, token: cbctToken } = await cbctUrlRes.json();
+      const { path: scanPath, token: scanToken } = await scanUrlRes.json();
+
+      const [cbctErr, scanErr] = await Promise.all([
+        supabase.storage.from('case-files').uploadToSignedUrl(cbctPath, cbctToken, attachCbct).then(r => r.error),
+        supabase.storage.from('case-files').uploadToSignedUrl(scanPath, scanToken, attachScan).then(r => r.error),
+      ]);
+      if (cbctErr || scanErr) { showToast('Error al subir archivos', true); return; }
+
+      const res = await fetch(`${API}/validation/${attachTarget.id}/attach-files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ cbct_file_path: cbctPath, scan_file_path: scanPath }),
+      });
+      if (res.ok) {
+        showToast('Archivos adjuntados — caso en cola de validación');
+        setAttachTarget(null); setAttachCbct(null); setAttachScan(null);
+        fetchPendingFiles(); fetchPending();
+      } else {
+        showToast('Error al adjuntar archivos', true);
+      }
+    } catch {
+      showToast('Error de conexión', true);
+    } finally {
+      setAttachLoading(false);
     }
   };
 
@@ -158,23 +223,38 @@ export default function RebeValidation() {
       <div className="p-8 max-w-5xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold" style={{ color: '#1F3863' }}>Cola de validación</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {loading ? 'Cargando...' : `${cases.length} caso${cases.length !== 1 ? 's' : ''} pendiente${cases.length !== 1 ? 's' : ''}`}
-            </p>
+            <h1 className="text-xl font-bold" style={{ color: '#1F3863' }}>Validación de archivos</h1>
           </div>
-          <button onClick={fetchPending}
+          <button onClick={() => { fetchPending(); fetchPendingFiles(); }}
             className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             Actualizar
           </button>
         </div>
 
-        {loading ? (
+        {/* Tabs */}
+        <div className="flex gap-1 mb-5 border-b border-gray-200">
+          {[
+            { key: 'queue', label: 'Cola de validación', count: cases.length },
+            { key: 'pending-files', label: 'Pendiente de archivos', count: pendingFiles.length },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t.key ? 'border-[#1F3863] text-[#1F3863]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              {t.label}
+              {t.count > 0 && (
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${tab === t.key ? 'bg-[#1F3863] text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'queue' && loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-sm text-gray-400">Cargando casos...</div>
           </div>
-        ) : cases.length === 0 ? (
+        ) : tab === 'queue' && cases.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -223,7 +303,100 @@ export default function RebeValidation() {
             </table>
           </div>
         )}
+
+        {/* ── PENDING FILES TAB ── */}
+        {tab === 'pending-files' && (
+          loadingPF ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-sm text-gray-400">Cargando...</div>
+            </div>
+          ) : pendingFiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <p className="text-sm font-medium text-gray-700">Sin casos pendientes de archivos</p>
+              <p className="text-xs text-gray-400 mt-1">Todos los casos tienen sus archivos adjuntos.</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Paciente</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Doctor</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Clínica</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha</th>
+                    <th className="px-5 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pendingFiles.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-medium text-gray-900">{c.patient_name}</div>
+                        {c.patient_age && <div className="text-xs text-gray-400">{c.patient_age} años</div>}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-600">Dr. {c.doctors?.first_name} {c.doctors?.last_name}</td>
+                      <td className="px-5 py-4 text-sm text-gray-600">{c.doctors?.clinic_name || '—'}</td>
+                      <td className="px-5 py-4 text-sm text-gray-600">{formatDate(c.created_at)}</td>
+                      <td className="px-5 py-4 text-right">
+                        <button onClick={() => { setAttachTarget(c); setAttachCbct(null); setAttachScan(null); }}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg text-white"
+                          style={{ backgroundColor: '#d97706' }}>
+                          Adjuntar archivos
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
       </div>
+
+      {/* Attach files modal */}
+      {attachTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Adjuntar archivos</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{attachTarget.patient_name} · Dr. {attachTarget.doctors?.first_name} {attachTarget.doctors?.last_name}</p>
+              </div>
+              <button onClick={() => setAttachTarget(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-xs text-gray-500">Sube los archivos recibidos del centro de radiología por correo.</p>
+              {[
+                { label: 'CBCT / Tomografía', accept: '.nii,.dcm,.zip', state: attachCbct, set: setAttachCbct },
+                { label: 'Escaneo oral', accept: '.stl,.ply,.zip', state: attachScan, set: setAttachScan },
+              ].map(({ label, accept, state, set }) => (
+                <div key={label}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">{label} <span className="text-red-400">*</span></label>
+                  <label className={`flex items-center gap-3 px-3 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${state ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                    <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    <span className={`text-xs ${state ? 'text-green-700 font-medium' : 'text-gray-500'}`}>
+                      {state ? state.name : 'Seleccionar archivo...'}
+                    </span>
+                    <input type="file" className="hidden" accept={accept} onChange={e => set(e.target.files[0] || null)} />
+                  </label>
+                </div>
+              ))}
+              <button
+                onClick={handleAttachFiles}
+                disabled={!attachCbct || !attachScan || attachLoading}
+                className="w-full py-2.5 text-sm font-medium text-white rounded-lg disabled:opacity-60"
+                style={{ backgroundColor: '#1F3863' }}>
+                {attachLoading ? 'Subiendo archivos...' : 'Adjuntar y enviar a validación'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Review modal */}
       {selected && (

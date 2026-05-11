@@ -89,8 +89,8 @@ router.post('/', uploadPhotos.fields([
       return res.status(400).json({ error: 'doctor_id, patient_name, and case_type are required' });
     }
 
-    if (!cbct_file_path) return res.status(400).json({ error: 'CBCT file is required' });
-    if (!scan_file_path) return res.status(400).json({ error: 'Scan file is required' });
+    const hasFiles = cbct_file_path && scan_file_path;
+    const caseStatus = hasFiles ? 'submitted' : 'pending_files';
 
     let parsedDetails = null;
     if (case_details) {
@@ -110,7 +110,7 @@ router.post('/', uploadPhotos.fields([
         tentative_surgery_date: tentative_surgery_date || null,
         special_notes: special_notes || null,
         case_details: parsedDetails,
-        status: 'submitted'
+        status: caseStatus
       })
       .select()
       .single();
@@ -128,25 +128,27 @@ router.post('/', uploadPhotos.fields([
       }
     }
 
-    // Update case with file paths
+    // Update case with file paths (may be null if radiology center will send later)
     await supabase
       .from('cases')
       .update({
-        cbct_file_path: cbct_file_path,
-        scan_file_path: scan_file_path,
+        cbct_file_path: cbct_file_path || null,
+        scan_file_path: scan_file_path || null,
         reference_photos: refPhotoPaths
       })
       .eq('id', caseId);
 
-    sendPushNotification({
-      title: 'Nuevo caso recibido',
-      message: `Caso de ${patient_name} enviado — pendiente de validación`,
-    }).catch(() => {});
+    if (hasFiles) {
+      sendPushNotification({
+        title: 'Nuevo caso recibido',
+        message: `Caso de ${patient_name} enviado — pendiente de validación`,
+      }).catch(() => {});
+    }
 
     res.status(201).json({
       message: 'Case submitted successfully',
       caseId,
-      status: 'submitted'
+      status: caseStatus
     });
 
   } catch (err) {
@@ -437,6 +439,35 @@ router.get('/:caseId', async (req, res) => {
 
     res.json(data);
 
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/cases/:caseId/download/:field — Signed download URL for doctor's own cbct or scan file
+router.get('/:caseId/download/:field', async (req, res) => {
+  try {
+    const { caseId, field } = req.params;
+    if (!['cbct', 'scan'].includes(field)) return res.status(400).json({ error: 'Invalid field' });
+
+    const { data: caseData, error } = await supabase
+      .from('cases')
+      .select('cbct_file_path, scan_file_path')
+      .eq('id', caseId)
+      .single();
+
+    if (error || !caseData) return res.status(404).json({ error: 'Case not found' });
+
+    const filePath = field === 'cbct' ? caseData.cbct_file_path : caseData.scan_file_path;
+    if (!filePath) return res.status(404).json({ error: 'File not found' });
+
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from('case-files')
+      .createSignedUrl(filePath, 3600);
+
+    if (urlError || !urlData?.signedUrl) return res.status(500).json({ error: 'Could not generate download URL' });
+
+    res.json({ url: urlData.signedUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

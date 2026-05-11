@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { randomUUID } = require('crypto');
 const supabase = require('../utils/supabase');
 const { sendPushNotification } = require('../utils/pushNotification');
 
@@ -86,6 +87,80 @@ router.post('/:caseId/reject', async (req, res) => {
 
     res.json({ message: 'Resubmission requested', case: data });
 
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/validation/pending-files — Cases waiting for staff to attach files from radiology center
+router.get('/pending-files', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*, doctors(first_name, last_name, clinic_name, email)')
+      .eq('status', 'pending_files')
+      .order('created_at', { ascending: true });
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ pending: data, count: data.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/validation/file-upload-url — Signed upload URL for staff to attach files
+router.get('/file-upload-url', async (req, res) => {
+  try {
+    const { field, ext } = req.query;
+    const validFields = ['cbct', 'scan'];
+    const validExts = ['.nii', '.dcm', '.stl', '.ply', '.zip'];
+
+    if (!validFields.includes(field)) return res.status(400).json({ error: 'Invalid field' });
+    if (!validExts.includes(ext?.toLowerCase())) return res.status(400).json({ error: 'Invalid extension' });
+
+    const filePath = `${randomUUID()}/${field}${ext.toLowerCase()}`;
+    const { data, error } = await supabase.storage
+      .from('case-files')
+      .createSignedUploadUrl(filePath);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ path: filePath, token: data.token, signedUrl: data.signedUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/validation/:caseId/attach-files — Staff attaches cbct/scan from radiology center
+router.post('/:caseId/attach-files', async (req, res) => {
+  try {
+    const { caseId } = req.params;
+    const { cbct_file_path, scan_file_path } = req.body;
+
+    if (!cbct_file_path || !scan_file_path) {
+      return res.status(400).json({ error: 'Both cbct_file_path and scan_file_path are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('cases')
+      .update({ cbct_file_path, scan_file_path, status: 'submitted' })
+      .eq('id', caseId)
+      .select('*, doctors(first_name, last_name)')
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Case not found' });
+
+    sendPushNotification({
+      title: 'Archivos recibidos',
+      message: `Archivos del caso de ${data.patient_name} adjuntados por radiología — pendiente de validación`,
+    }).catch(() => {});
+
+    await supabase.from('audit_log').insert({
+      action: 'files_attached_by_staff',
+      resource_type: 'case',
+      resource_id: caseId
+    });
+
+    res.json({ message: 'Files attached', case: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
