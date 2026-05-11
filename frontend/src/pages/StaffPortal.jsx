@@ -438,8 +438,11 @@ export default function StaffPortal() {
       <aside style={{ width: 230, background: C.navy, display: 'flex', flexDirection: 'column', flexShrink: 0, height: '100vh' }}>
         {/* Brand */}
         <div style={{ padding: '20px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <span style={{ color: 'white', fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>DIONavi Lab</span>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2, letterSpacing: 0.3 }}>Portal del Equipo</div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', letterSpacing: '0.04em', lineHeight: 1 }}>
+            <span style={{ color: '#ffffff', fontSize: 17, fontWeight: 700, fontFamily: 'Russo One, sans-serif' }}>DIO</span>
+            <span style={{ color: '#4E4CB0', fontSize: 17, fontWeight: 700, fontFamily: 'Russo One, sans-serif' }}>NAVI</span>
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 5 }}>Portal del Equipo</div>
         </div>
 
         {/* Nav */}

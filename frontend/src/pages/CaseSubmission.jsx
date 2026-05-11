@@ -178,7 +178,11 @@ export default function CaseSubmission() {
       {/* Sidebar */}
       <div className="w-56 flex-shrink-0 flex flex-col" style={{ backgroundColor: '#1F3863', minHeight: '100vh' }}>
         <div className="px-5 py-5 border-b border-white/10">
-          <span className="text-white font-bold text-sm tracking-wide">DIONavi Lab</span>
+          <div style={{ display: 'inline-flex', alignItems: 'center', letterSpacing: '0.04em', lineHeight: 1 }}>
+            <span style={{ color: '#ffffff', fontSize: 17, fontWeight: 700, fontFamily: 'Russo One, sans-serif' }}>DIO</span>
+            <span style={{ color: '#4E4CB0', fontSize: 17, fontWeight: 700, fontFamily: 'Russo One, sans-serif' }}>NAVI</span>
+          </div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 5 }}>Plataforma Lab</div>
         </div>
         <nav className="p-3 flex-1">
           <button onClick={() => navigate('/submit-case')}
